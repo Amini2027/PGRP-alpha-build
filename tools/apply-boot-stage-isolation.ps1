@@ -41,3 +41,31 @@ static DWORD PgrpExistingGamePid() {
 '@
 Replace-Exact 'launcher/inject.h' 'static void PgrpLaunchTrace(const char* message)' ($check+$nl+'static void PgrpLaunchTrace(const char* message)')
 Replace-Exact 'launcher/inject.h' '        PgrpLaunchTrace("01 Launcher start; resolving game files");' ('        PgrpLaunchTrace("01 Launcher start; resolving game files");'+$nl+'        if (DWORD other=PgrpExistingGamePid())'+$nl+'            throw std::runtime_error("An existing gta_sa.exe is already running; PID: "+std::to_string(other)+". Close it in Task Manager, then retry PGRP.");'+$nl+'        PgrpLaunchTrace("01a No previous GTA process found");')
+
+# Control experiment: launch GTA with CreateProcessW, but DO NOT load Client.Native.dll at all.
+# This distinguishes a plain Windows process-launch problem from DLL injection or game hooks.
+$skipInjection=@'
+        char skipInjectionFlag[8]{};
+        const DWORD skipLen = GetEnvironmentVariableA("PGRP_SKIP_INJECTION", skipInjectionFlag, sizeof(skipInjectionFlag));
+        if (skipLen > 0 && skipLen < sizeof(skipInjectionFlag) && skipInjectionFlag[0] == '1')
+        {
+            PgrpLaunchTrace("CONTROL: no DLL injection requested; waiting four seconds");
+            const DWORD result = WaitForSingleObject(h_process, 4000);
+            if (result == WAIT_OBJECT_0)
+            {
+                DWORD exitCode = 0xFFFFFFFF;
+                GetExitCodeProcess(h_process, &exitCode);
+                PgrpLaunchTrace("CONTROL: GTA exited without any injected DLL");
+                throw std::runtime_error(
+                    "CONTROL TEST: gta_sa.exe exited without DLL injection. Exit code: " +
+                    std::to_string(exitCode) + ". Investigate CreateProcess versus normal Explorer launch.");
+            }
+            if (result != WAIT_TIMEOUT)
+                throw std::runtime_error("CONTROL TEST: WaitForSingleObject failed");
+            PgrpLaunchTrace("CONTROL PASS: GTA alive after 4 seconds WITHOUT DLL injection");
+            CloseHandle(h_process);
+            h_process = nullptr;
+            return 0;
+        }
+'@
+Replace-Exact 'launcher/inject.h' '        PgrpLaunchTrace("04 GTA process ready; preparing DLL injection");' ('        PgrpLaunchTrace("04 GTA process ready; preparing DLL injection");'+$nl+$skipInjection)
