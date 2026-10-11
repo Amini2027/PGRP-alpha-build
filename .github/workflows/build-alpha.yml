@@ -7,6 +7,7 @@ on:
       - .github/workflows/build-alpha.yml
       - tools/apply-client-fixes.ps1
       - tools/apply-launch-tracing.ps1
+      - tools/apply-boot-stage-isolation.ps1
   workflow_dispatch:
 
 permissions:
@@ -40,6 +41,8 @@ jobs:
           if (-not $?) { throw 'PGRP compatibility patch step failed' }
           & .\tools\apply-launch-tracing.ps1 -Root 'upstream'
           if (-not $?) { throw 'PGRP launch tracing patch step failed' }
+          & .\tools\apply-boot-stage-isolation.ps1 -Root 'upstream'
+          if (-not $?) { throw 'PGRP stage isolation patch failed' }
 
       - name: Compile Win32 Release using Visual Studio 2022
         shell: pwsh
@@ -66,6 +69,29 @@ jobs:
             Copy-Item -LiteralPath $path -Destination $out
             Get-FileHash -LiteralPath (Join-Path $out $binary) -Algorithm SHA256 | Format-List
           }
+          $template = @'
+@echo off
+setlocal
+cd /d "%~dp0"
+set "PGRP_BOOT_STAGE=__MODE__"
+echo.
+echo PGRP diagnostic mode __MODE__
+echo Make sure GTA SA is fully closed BEFORE starting this test.
+echo.
+if not exist gta_sa.exe (echo ERROR: Place these files beside gta_sa.exe & pause & exit /b 1)
+opensamp.exe
+echo.
+echo Test ended. Looking for a surviving gta_sa.exe:
+tasklist /FI "IMAGENAME eq gta_sa.exe"
+echo.
+echo Please report whether GTA remained open, and send the latest PGRP_Launcher_Trace.log and PGRP_Native_Init.log.
+pause
+'@
+          foreach ($mode in 0..3) {
+            $file = Join-Path $out ("PGRP_Test_Mode_" + $mode + ".cmd")
+            [System.IO.File]::WriteAllText($file, $template.Replace('__MODE__', "$mode"), [System.Text.Encoding]::ASCII)
+          }
+          Write-Host 'Packaged four independent PGRP boot isolation tests'
           Copy-Item -LiteralPath 'upstream\LICENSE' -Destination (Join-Path $out 'LICENSE.txt')
           Copy-Item -LiteralPath 'upstream\THIRD-PARTY-NOTICES.md' -Destination $out
           @(
