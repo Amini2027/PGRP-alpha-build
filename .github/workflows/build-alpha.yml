@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-alpha.yml
+      - tools/apply-client-fixes.ps1
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cannot read upstream commit' }
           "UPSTREAM_COMMIT=$commit" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Source revision: $commit"
+
+      - name: Apply verified PGRP OpenSAMP display and UI compatibility patches
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tools\apply-client-fixes.ps1 -Root 'upstream'
+          if (-not $?) { throw 'PGRP compatibility patch step failed' }
 
       - name: Compile Win32 Release using Visual Studio 2022
         shell: pwsh
