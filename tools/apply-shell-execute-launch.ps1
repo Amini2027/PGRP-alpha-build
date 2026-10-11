@@ -57,7 +57,7 @@ $after=@'
         }
 '@
 Patch-Once 'launcher/inject.h' $before $after
-Patch-Once 'launcher/inject.h' '        CloseHandle(h_thread);' '        if (h_thread) CloseHandle(h_thread);'
+Patch-Once 'launcher/inject.h' '        const DWORD pid = pi.dwProcessId;' ('        const DWORD pid = pi.dwProcessId;' + [Environment]::NewLine + '        // No primary thread handle is returned by ShellExecuteExW.')
 Patch-Once 'launcher/inject.h' '#include <windows.h>' ("#include <windows.h>"+[Environment]::NewLine+"#include <shellapi.h>"+[Environment]::NewLine+'#pragma comment(lib, "shell32.lib")')
 Patch-Once 'launcher/inject.h' '        PgrpLaunchTrace("02 GTA CreateProcessW succeeded");' '        PgrpLaunchTrace("02 GTA ShellExecuteExW succeeded");'
 Write-Host 'Original GTA game files remain unchanged.'
