@@ -21,11 +21,11 @@ function Replace-Exact([string]$Relative, [string]$Before, [string]$After) {
     Write-Host "PATCH OK $Relative : $Before"
 }
 
-# Do not stretch the desktop-sized borderless window over a differently-sized GTA backbuffer.
-# Original GTA presentation mode stays in charge unless a proper coordinated Reset is implemented.
-Replace-Exact 'native/d3d.cpp' 'static bool g_borderlessEnabled = true;' 'static bool g_borderlessEnabled = false; // PGRP alpha: do not force borderless'
-Replace-Exact 'native/d3d.cpp' 'static bool g_forceResEnabled = true;' 'static bool g_forceResEnabled = false; // PGRP alpha: do not override GTA resolution'
-Replace-Exact 'native/d3d.cpp' 'if (pp)' 'if (pp && g_forceResEnabled)'
+# PGRP baseline-compatibility experiment:
+# Temporarily retain upstream's original Direct3D / borderless settings.
+# Earlier client entered the game with these settings; the alpha display override
+# has not yet been proven compatible with the user's GTA install.
+# Keep all UI identity and diagnostic fixes while isolating the rendering regression.
 
 # Stable window ID and distinct IDs for both buttons, even when the server labels match.
 Replace-Exact 'native/gui/dialog.cpp' 'ImGui::Begin(title, nullptr, flags);' ('const std::string stableTitle = std::string(title) + "###pgrp_server_dialog";' + [Environment]::NewLine + '        ImGui::Begin(stableTitle.c_str(), nullptr, flags);')
