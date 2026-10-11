@@ -105,3 +105,5 @@ $delayBlock=@'
 '@
 Replace-Exact 'launcher/inject.h' '        for (const auto& dllPath : dlls)' ($delayBlock+$nl+'        for (const auto& dllPath : dlls)')
 Replace-Exact 'launcher/inject.h' '            const DWORD result = WaitForSingleObject(h_process, 4000);' '            const DWORD result = WaitForSingleObject(h_process, 12000);'
+
+Replace-Exact 'launcher/inject.h' '#include <vector>' ('#include <vector>'+$nl+'#include <algorithm>')
