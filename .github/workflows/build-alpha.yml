@@ -9,6 +9,7 @@ on:
       - tools/apply-launch-tracing.ps1
       - tools/apply-boot-stage-isolation.ps1
       - tools/smoke-passive-injection.ps1
+      - tools/apply-shell-execute-launch.ps1
   workflow_dispatch:
 
 permissions:
@@ -44,6 +45,8 @@ jobs:
           if (-not $?) { throw 'PGRP launch tracing patch step failed' }
           & .\tools\apply-boot-stage-isolation.ps1 -Root 'upstream'
           if (-not $?) { throw 'PGRP stage isolation patch failed' }
+          & .\tools\apply-shell-execute-launch.ps1 -Root 'upstream'
+          if (-not $?) { throw 'Windows Shell launch patch failed' }
 
       - name: Compile Win32 Release using Visual Studio 2022
         shell: pwsh
