@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/build-alpha.yml
       - tools/apply-client-fixes.ps1
+      - tools/apply-launch-tracing.ps1
   workflow_dispatch:
 
 permissions:
@@ -37,6 +38,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & .\tools\apply-client-fixes.ps1 -Root 'upstream'
           if (-not $?) { throw 'PGRP compatibility patch step failed' }
+          & .\tools\apply-launch-tracing.ps1 -Root 'upstream'
+          if (-not $?) { throw 'PGRP launch tracing patch step failed' }
 
       - name: Compile Win32 Release using Visual Studio 2022
         shell: pwsh
