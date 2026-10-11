@@ -112,6 +112,38 @@ jobs:
           '@
           [System.IO.File]::WriteAllText((Join-Path $out 'PGRP_Test_NO_DLL_Injection.cmd'), $control, [System.Text.Encoding]::ASCII)
           Write-Host 'Packaged no-DLL-injection launcher control test'
+          $passive = @'
+          @echo off
+          setlocal
+          cd /d "%~dp0"
+          set "PGRP_SKIP_INJECTION=0"
+          set "PGRP_DLL_PASSIVE=1"
+          set "PGRP_BOOT_STAGE=0"
+          echo PGRP PASSIVE DLL TEST - inject DLL but do not install patches or initialize client.
+          echo Close any GTA instance before running.
+          opensamp.exe
+          tasklist /FI "IMAGENAME eq gta_sa.exe"
+          echo Send PGRP_Launcher_Trace.log and PGRP_Native_Init.log if present.
+          pause
+          '@
+          [System.IO.File]::WriteAllText((Join-Path $out 'PGRP_Test_PASSIVE_DLL.cmd'), $passive, [System.Text.Encoding]::ASCII)
+          $delayed = @'
+          @echo off
+          setlocal
+          cd /d "%~dp0"
+          set "PGRP_SKIP_INJECTION=0"
+          set "PGRP_DLL_PASSIVE=0"
+          set "PGRP_BOOT_STAGE=0"
+          set "PGRP_INJECT_DELAY_MS=10000"
+          echo PGRP DELAYED DLL TEST - GTA runs 10 seconds before loading the DLL in stage 0.
+          echo Close any GTA instance before running.
+          opensamp.exe
+          tasklist /FI "IMAGENAME eq gta_sa.exe"
+          echo Send PGRP_Launcher_Trace.log and PGRP_Native_Init.log.
+          pause
+          '@
+          [System.IO.File]::WriteAllText((Join-Path $out 'PGRP_Test_DELAYED_STAGE0.cmd'), $delayed, [System.Text.Encoding]::ASCII)
+          Write-Host 'Packaged passive DLL and delayed stage-0 tests'
           Copy-Item -LiteralPath 'upstream\LICENSE' -Destination (Join-Path $out 'LICENSE.txt')
           Copy-Item -LiteralPath 'upstream\THIRD-PARTY-NOTICES.md' -Destination $out
           @(
