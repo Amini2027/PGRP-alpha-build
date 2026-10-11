@@ -1,0 +1,43 @@
+param([string]$Root='upstream')
+$ErrorActionPreference='Stop'
+function Replace-Exact([string]$p,[string]$a,[string]$b) {
+ $f=(Resolve-Path (Join-Path $Root $p)).Path
+ $s=[IO.File]::ReadAllText($f)
+ $n=([regex]::Matches($s,[regex]::Escape($a))).Count
+ if($n -ne 1) {throw "Patch mismatch in $p : $a; matches=$n"}
+ [IO.File]::WriteAllText($f,$s.Replace($a,$b),[Text.UTF8Encoding]::new($false))
+ Write-Host "PATCH OK: $p"
+}
+$nl=[Environment]::NewLine
+$stage=@'
+    char stageBuffer[16]{};
+    const DWORD len = GetEnvironmentVariableA("PGRP_BOOT_STAGE",stageBuffer,sizeof(stageBuffer));
+    const int stage = (len > 0 && len < sizeof(stageBuffer)) ? atoi(stageBuffer) : 3;
+    if (stage == 0) {
+        PgrpTrace("MODE 0: DLL loaded without memory patches or hooks");
+        return 0;
+    }
+    PgrpTrace("MODE: memory patches enabled");
+'@
+Replace-Exact 'native/dllmain.cpp' '    PgrpTrace("03 Applying base memory patches");' ($stage+$nl+'    PgrpTrace("03 Applying base memory patches");')
+Replace-Exact 'native/dllmain.cpp' '    PgrpTrace("04 Base memory patches completed");' ('    PgrpTrace("04 Base memory patches completed");'+$nl+'    if (stage == 1) { PgrpTrace("MODE 1: patches only, no hooks"); return 0; }')
+Replace-Exact 'native/dllmain.cpp' '    PgrpTrace("07 GameReady_Install completed");' ('    PgrpTrace("07 GameReady_Install completed");'+$nl+'    if (stage == 2) { PgrpTrace("MODE 2: game hooks installed, no D3D"); return 0; }')
+Replace-Exact 'native/dllmain.cpp' '#include <cstring>' ('#include <cstring>'+$nl+'#include <cstdlib>')
+$check=@'
+static DWORD PgrpExistingGamePid() {
+    HANDLE h=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+    if(h==INVALID_HANDLE_VALUE)return 0;
+    PROCESSENTRY32W e{}; e.dwSize=sizeof(e);
+    DWORD found=0;
+    if(Process32FirstW(h,&e)) {
+        do {
+            if(lstrcmpiW(e.szExeFile,L"gta_sa.exe")==0) {
+                found=e.th32ProcessID; break;
+            }
+        }while(Process32NextW(h,&e));
+    }
+    CloseHandle(h); return found;
+}
+'@
+Replace-Exact 'launcher/inject.h' 'static void PgrpLaunchTrace(const char* message)' ($check+$nl+'static void PgrpLaunchTrace(const char* message)')
+Replace-Exact 'launcher/inject.h' '        PgrpLaunchTrace("01 Launcher start; resolving game files");' ('        PgrpLaunchTrace("01 Launcher start; resolving game files");'+$nl+'        if (DWORD other=PgrpExistingGamePid())'+$nl+'            throw std::runtime_error("An existing gta_sa.exe is already running; PID: "+std::to_string(other)+". Close it in Task Manager, then retry PGRP.");'+$nl+'        PgrpLaunchTrace("01a No previous GTA process found");')
