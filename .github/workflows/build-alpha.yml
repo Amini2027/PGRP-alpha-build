@@ -92,6 +92,26 @@ jobs:
             [System.IO.File]::WriteAllText($file, $template.Replace('__MODE__', "$mode"), [System.Text.Encoding]::ASCII)
           }
           Write-Host 'Packaged four independent PGRP boot isolation tests'
+          $control = @'
+          @echo off
+          setlocal
+          cd /d "%~dp0"
+          set "PGRP_SKIP_INJECTION=1"
+          set "PGRP_BOOT_STAGE=0"
+          echo.
+          echo PGRP CONTROL TEST: Run GTA from the OpenSAMP launcher WITHOUT injecting any DLL.
+          echo.
+          if not exist gta_sa.exe (echo ERROR: gta_sa.exe missing & pause & exit /b 1)
+          opensamp.exe
+          echo.
+          echo GTA status after control test:
+          tasklist /FI "IMAGENAME eq gta_sa.exe"
+          echo.
+          echo Please send PGRP_Launcher_Trace.log and report whether GTA stayed open.
+          pause
+          '@
+          [System.IO.File]::WriteAllText((Join-Path $out 'PGRP_Test_NO_DLL_Injection.cmd'), $control, [System.Text.Encoding]::ASCII)
+          Write-Host 'Packaged no-DLL-injection launcher control test'
           Copy-Item -LiteralPath 'upstream\LICENSE' -Destination (Join-Path $out 'LICENSE.txt')
           Copy-Item -LiteralPath 'upstream\THIRD-PARTY-NOTICES.md' -Destination $out
           @(
