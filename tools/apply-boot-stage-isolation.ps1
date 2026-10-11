@@ -69,3 +69,39 @@ $skipInjection=@'
         }
 '@
 Replace-Exact 'launcher/inject.h' '        PgrpLaunchTrace("04 GTA process ready; preparing DLL injection");' ('        PgrpLaunchTrace("04 GTA process ready; preparing DLL injection");'+$nl+$skipInjection)
+
+# Passive DLL test: LoadLibrary succeeds but no initialization thread is started.
+# This isolates remote LoadLibrary itself from OpenSAMP native startup work.
+$passive=@'
+    char passiveFlag[8]{};
+    const DWORD passiveLen = GetEnvironmentVariableA("PGRP_DLL_PASSIVE", passiveFlag, sizeof(passiveFlag));
+    if (passiveLen > 0 && passiveLen < sizeof(passiveFlag) && passiveFlag[0] == '1')
+        return true;
+'@
+Replace-Exact 'native/dllmain.cpp' '    DisableThreadLibraryCalls(hModule);' ('    DisableThreadLibraryCalls(hModule);'+$nl+$passive)
+
+# Delay injection until GTA has run on its own, avoiding the earliest process startup window.
+$delayBlock=@'
+        char delayBuffer[16]{};
+        const DWORD delayLen = GetEnvironmentVariableA("PGRP_INJECT_DELAY_MS",delayBuffer,sizeof(delayBuffer));
+        if (delayLen > 0 && delayLen < sizeof(delayBuffer))
+        {
+            const unsigned long delayMs = std::min(std::stoul(delayBuffer), 30000UL);
+            if (delayMs > 0)
+            {
+                PgrpLaunchTrace("DELAY: waiting before Client.Native.dll injection");
+                const DWORD waitResult = WaitForSingleObject(h_process, static_cast<DWORD>(delayMs));
+                if (waitResult == WAIT_OBJECT_0)
+                {
+                    DWORD exitCode=0xFFFFFFFF;
+                    GetExitCodeProcess(h_process,&exitCode);
+                    throw std::runtime_error("GTA exited BEFORE delayed injection. Exit code="+std::to_string(exitCode));
+                }
+                if (waitResult != WAIT_TIMEOUT)
+                    throw std::runtime_error("Delay wait failed before injection");
+                PgrpLaunchTrace("DELAY: GTA survived; starting Client.Native.dll injection");
+            }
+        }
+'@
+Replace-Exact 'launcher/inject.h' '        for (const auto& dllPath : dlls)' ($delayBlock+$nl+'        for (const auto& dllPath : dlls)')
+Replace-Exact 'launcher/inject.h' '            const DWORD result = WaitForSingleObject(h_process, 4000);' '            const DWORD result = WaitForSingleObject(h_process, 12000);'
