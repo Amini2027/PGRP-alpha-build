@@ -8,6 +8,7 @@ on:
       - tools/apply-client-fixes.ps1
       - tools/apply-launch-tracing.ps1
       - tools/apply-boot-stage-isolation.ps1
+      - tools/smoke-passive-injection.ps1
   workflow_dispatch:
 
 permissions:
@@ -56,6 +57,13 @@ jobs:
           Write-Host "MSBuild: $msbuild"
           & $msbuild 'upstream\opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal' '/fl' '/flp:logfile=msbuild.log;verbosity=normal'
           if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
+
+      - name: Smoke-test process startup and DLL injection on Win32
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tools\smoke-passive-injection.ps1 -SourceDir 'upstream\bin'
+          if (-not $?) { throw 'Synthetic x86 GTA process smoke test failed' }
 
       - name: Verify and package open-source alpha outputs only
         shell: pwsh
