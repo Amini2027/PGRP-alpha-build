@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-standalone-setup.yml
-      - setup-v045/**
+      - setup-v044/**
       - tools/apply-client-fixes.ps1
       - tools/apply-dialog-close-fix.ps1
 
@@ -43,9 +43,9 @@ jobs:
           if (-not $msbuild) { throw 'MSBuild not found' }
           & $msbuild 'upstream\opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
           if ($LASTEXITCODE -ne 0) { throw 'Original client build failed' }
-          New-Item -ItemType Directory -Force -Path 'setup-v045\payload' | Out-Null
-          Copy-Item 'upstream\bin\opensamp.exe' 'setup-v045\payload\opensamp.exe'
-          Get-FileHash 'setup-v045\payload\opensamp.exe' -Algorithm SHA256 | Format-List
+          New-Item -ItemType Directory -Force -Path 'setup-v044\payload' | Out-Null
+          Copy-Item 'upstream\bin\opensamp.exe' 'setup-v044\payload\opensamp.exe'
+          Get-FileHash 'setup-v044\payload\opensamp.exe' -Algorithm SHA256 | Format-List
 
       - name: Compile fixed Win32 UI client
         shell: pwsh
@@ -59,8 +59,8 @@ jobs:
           $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
           & $msbuild 'upstream\opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
           if ($LASTEXITCODE -ne 0) { throw 'Fixed DLL build failed' }
-          Copy-Item 'upstream\bin\Client.Native.dll' 'setup-v045\payload\Client.Native.dll'
-          if ((Get-Item 'setup-v045\payload\Client.Native.dll').Length -lt 500000) { throw 'DLL output invalid' }
+          Copy-Item 'upstream\bin\Client.Native.dll' 'setup-v044\payload\Client.Native.dll'
+          if ((Get-Item 'setup-v044\payload\Client.Native.dll').Length -lt 500000) { throw 'DLL output invalid' }
 
       - name: Test fresh setup installation and hashes on Windows
         shell: pwsh
@@ -73,10 +73,10 @@ jobs:
           [IO.File]::WriteAllBytes((Join-Path $original 'gta_sa.exe'),[byte[]](1,2,3,4,5))
           [IO.File]::WriteAllText((Join-Path $original 'models\gta3.img'),'synthetic GTA test files')
           $sourceHash=(Get-FileHash (Join-Path $original 'gta_sa.exe') -Algorithm SHA256).Hash
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\setup-v045\install.ps1' -AssetsDir 'setup-v045\payload' -SourceGTA (Join-Path $original 'gta_sa.exe') -InstallRoot $dest -Silent
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\setup-v044\install.ps1' -AssetsDir 'setup-v044\payload' -SourceGTA (Join-Path $original 'gta_sa.exe') -InstallRoot $dest -Silent
           if ($LASTEXITCODE -ne 0) { throw 'Fresh setup Windows install failed' }
           foreach($name in @('opensamp.exe','Client.Native.dll')) {
-            $want=(Get-FileHash (Join-Path 'setup-v045\payload' $name) -Algorithm SHA256).Hash
+            $want=(Get-FileHash (Join-Path 'setup-v044\payload' $name) -Algorithm SHA256).Hash
             $got=(Get-FileHash (Join-Path $dest "GTA_San_Andreas\$name") -Algorithm SHA256).Hash
             if ($want -ne $got) { throw ('Install hash mismatch '+$name) }
           }
@@ -88,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Push-Location setup-v045
+          Push-Location setup-v044
           try {
             $env:GOOS='windows'
             $env:GOARCH='amd64'
@@ -154,7 +154,7 @@ jobs:
             throw 'GUI click run did not install the expected version manifest'
           }
           foreach($bin in @('opensamp.exe','Client.Native.dll')) {
-            $a=(Get-FileHash (Join-Path 'setup-v045\payload' $bin) -Algorithm SHA256).Hash
+            $a=(Get-FileHash (Join-Path 'setup-v044\payload' $bin) -Algorithm SHA256).Hash
             $b=(Get-FileHash (Join-Path $target ('GTA_San_Andreas\'+$bin)) -Algorithm SHA256).Hash
             if($a -ne $b) { throw ('GUI click installed incorrect '+$bin) }
           }
@@ -168,8 +168,8 @@ jobs:
           Copy-Item 'PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe' 'PGRP_Setup_v0.4.5_Release\'
           Copy-Item 'upstream\LICENSE' 'PGRP_Setup_v0.4.5_Release\LICENSE.txt'
           Copy-Item 'upstream\THIRD-PARTY-NOTICES.md' 'PGRP_Setup_v0.4.5_Release\'
-          Copy-Item 'setup-v045\main.go' 'PGRP_Setup_v0.4.5_Release\setup-main.go'
-          Copy-Item 'setup-v045\install.ps1' 'PGRP_Setup_v0.4.5_Release\install.ps1'
+          Copy-Item 'setup-v044\main.go' 'PGRP_Setup_v0.4.5_Release\setup-main.go'
+          Copy-Item 'setup-v044\install.ps1' 'PGRP_Setup_v0.4.5_Release\install.ps1'
           Copy-Item 'tools\apply-client-fixes.ps1' 'PGRP_Setup_v0.4.5_Release\'
           Copy-Item 'tools\apply-dialog-close-fix.ps1' 'PGRP_Setup_v0.4.5_Release\'
           git -C upstream archive --format=zip --output=../PGRP_Setup_v0.4.5_Release/OpenSAMP_original_source.zip HEAD
