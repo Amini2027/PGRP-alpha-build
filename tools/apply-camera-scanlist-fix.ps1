@@ -69,11 +69,7 @@ Patch 'native/sampraknet_bridge.cpp' @'
     Log("You have been spawned!");
 '@
 # Debug RPCs are useful in OpenSamp.log, but not as chat HUD lines.
-Patch 'native/sampraknet_bridge.cpp' @'
-    g_chat.PushLineAsync(buffer);
-
-    // Mirror to OpenSamp.log.
-'@ @'
+Patch 'native/sampraknet_bridge.cpp' '    g_chat.PushLineAsync(buffer);' @'
     const bool isEngineDiagnostic =
         std::strncmp(buffer, "[WorldTime]", 11) == 0 ||
         std::strncmp(buffer, "[Weather]", 9) == 0 ||
@@ -81,7 +77,5 @@ Patch 'native/sampraknet_bridge.cpp' @'
         std::strncmp(buffer, "[Camera]", 8) == 0;
     if (!isEngineDiagnostic)
         g_chat.PushLineAsync(buffer);
-
-    // Mirror to OpenSamp.log.
 '@
 Write-Host 'PGRP PC1 v0.4.7 scanlist/spectator/camera/chat fixes successfully applied.'
