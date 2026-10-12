@@ -165,6 +165,7 @@ try {
     $browse.Add_Click({
         if ($UiActionSmoke) {
             if (-not $SourceGTA) { throw "GUI Action Smoke requires -SourceGTA" }
+            Log ("Browse-click smoke ENTER; source GTA="+$SourceGTA)
             $script:gtaExeTextBox.Text=$SourceGTA
             Log ("Browse-click smoke: GTA textbox updated to "+$script:gtaExeTextBox.Text)
             return
@@ -250,12 +251,16 @@ try {
             $script:actionSmokeTimer.Add_Tick({
                 $script:actionSmokeTimer.Stop()
                 try {
+                    Log "GUI-action timer: before Browse.PerformClick"
                     $browse.PerformClick()
+                    Log "GUI-action timer: after Browse.PerformClick"
                     if ($script:gtaExeTextBox.Text -ne $SourceGTA) {
                         throw 'Browse handler did not update the TextBox'
                     }
                     Log ('GUI action smoke clicking Install for '+$script:gtaExeTextBox.Text)
+                    Log "GUI-action timer: before Install.PerformClick"
                     $install.PerformClick()
+                    Log "GUI-action timer: after Install.PerformClick"
                 } catch {
                     [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.error"), $_.Exception.ToString())
                     $form.Close()
