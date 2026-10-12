@@ -10,6 +10,8 @@ on:
       - tools/apply-boot-stage-isolation.ps1
       - tools/smoke-passive-injection.ps1
       - tools/apply-shell-execute-launch.ps1
+      - tools/install-v043-ui-update.ps1
+      - tools/smoke-v043-installer.ps1
   workflow_dispatch:
 
 permissions:
@@ -67,6 +69,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & .\tools\smoke-passive-injection.ps1 -SourceDir 'upstream\bin'
           if (-not $?) { throw 'Synthetic x86 GTA process smoke test failed' }
+
+      - name: Smoke-test v0.4.3 DLL-only updater on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tools\smoke-v043-installer.ps1 -PayloadDir 'upstream\bin'
+          if (-not $?) { throw 'PGRP DLL updater smoke test failed' }
 
       - name: Verify and package open-source alpha outputs only
         shell: pwsh
