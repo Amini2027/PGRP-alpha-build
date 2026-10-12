@@ -139,7 +139,7 @@ PatchOne 'native/sampraknet_bridge.cpp' @'
 '@ 'expose verified UI role'
 
 PatchOne 'native/sampraknet_bridge.h' @'
-    int  MyPlayerId();
+    int  MyPlayerId();      // -1 if not assigned yet
 '@ @'
     int  MyPlayerId();
     // UI-only hint; the server always rechecks privileges on /players.
