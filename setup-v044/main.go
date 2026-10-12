@@ -14,7 +14,7 @@ import (
 )
 
 // A standalone Windows installer: the original, proven OpenSAMP launcher,
-// the new v0.4.4 Client.Native.dll and the install UI ship inside this EXE.
+// the new v0.4.5 Client.Native.dll and the install UI ship inside this EXE.
 //go:embed payload/opensamp.exe payload/Client.Native.dll install.ps1
 var resources embed.FS
 
@@ -38,7 +38,7 @@ func writeEmbedded(name, path string) (string, error) {
 }
 
 func main() {
-	work, err := os.MkdirTemp("", "PGRP_Alpha_v044_Setup_")
+	work, err := os.MkdirTemp("", "PGRP_Alpha_v045_Setup_")
 	if err != nil { messageBox("PGRP Setup failed", err.Error(), 0x10); os.Exit(1) }
 	defer os.RemoveAll(work)
 	assets := filepath.Join(work, "payload")
@@ -57,7 +57,7 @@ func main() {
 		hashes = append(hashes, p.src+" "+sum)
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--verify" {
-		fmt.Println("PGRP Alpha v0.4.4 embedded payload verification")
+		fmt.Println("PGRP Alpha v0.4.5 embedded payload verification")
 		fmt.Println(strings.Join(hashes,"\n"))
 		return
 	}
@@ -74,7 +74,7 @@ func main() {
 	cmd := exec.Command("powershell.exe",args...)
 	const createNoWindow = 0x08000000
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
-	trace, traceErr := os.OpenFile(filepath.Join(os.TempDir(), "PGRP_v044_Setup_Boot.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	trace, traceErr := os.OpenFile(filepath.Join(os.TempDir(), "PGRP_v045_Setup_Boot.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if traceErr == nil {
 		defer trace.Close()
 		fmt.Fprintln(trace, "Starting PowerShell WinForms installer (CREATE_NO_WINDOW; no SW_HIDE)")
@@ -83,7 +83,7 @@ func main() {
 	}
 	if err = cmd.Run(); err != nil {
 		if trace != nil { fmt.Fprintln(trace, "PowerShell process error: "+err.Error()) }
-		messageBox("PGRP Setup", "Installer finished with an error.\nCheck %TEMP%\\PGRP_v044_Setup_Boot.log and PGRP_v044_Setup.log\n\n"+err.Error(),0x10)
+		messageBox("PGRP Setup", "Installer finished with an error.\nCheck %TEMP%\\PGRP_v045_Setup_Boot.log and PGRP_v045_Setup.log\n\n"+err.Error(),0x10)
 		os.Exit(1)
 	}
 }
