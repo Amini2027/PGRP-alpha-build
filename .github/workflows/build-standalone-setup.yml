@@ -121,6 +121,43 @@ jobs:
           Get-Content $marker
           Write-Host 'PASS: Real Setup.exe launches a visible WinForms window (then auto-closes in CI probe mode)'
 
+      - name: Test real Browse and Install button clicks in Setup.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $tempRoot=Join-Path $env:RUNNER_TEMP 'pgrp-real-gui-click-smoke'
+          $source=Join-Path $tempRoot 'GTA_Original'
+          $target=Join-Path $tempRoot 'New_PGRP_v044'
+          New-Item -ItemType Directory -Force -Path (Join-Path $source 'models'),(Join-Path $source 'data') | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $source 'gta_sa.exe'),[byte[]](1,2,3,4,5))
+          [IO.File]::WriteAllText((Join-Path $source 'models\gta3.img'),'fake test-only game assets')
+          $selected=Join-Path $source 'gta_sa.exe'
+          $ok=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.ok'
+          $failure=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.error'
+          Remove-Item -LiteralPath $ok,$failure -Force -ErrorAction SilentlyContinue
+          $exe=(Resolve-Path '.\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe').Path
+          $proc=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"'+$selected+'"'),'-InstallRoot',('"'+$target+'"')) -PassThru
+          if (-not $proc.WaitForExit(65000)) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw 'Actual WinForms browse/install test timed out in 65 seconds'
+          }
+          if ($proc.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $ok)) {
+            Get-Content $failure -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup_Boot.log') -Tail 20 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup.log') -Tail 35 -ErrorAction SilentlyContinue
+            throw ('Actual GUI click smoke failed with exit code '+$proc.ExitCode)
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $target 'PGRP_Installed_Version.txt'))) {
+            throw 'GUI click run did not install the expected version manifest'
+          }
+          foreach($bin in @('opensamp.exe','Client.Native.dll')) {
+            $a=(Get-FileHash (Join-Path 'setup-v044\payload' $bin) -Algorithm SHA256).Hash
+            $b=(Get-FileHash (Join-Path $target ('GTA_San_Andreas\'+$bin)) -Algorithm SHA256).Hash
+            if($a -ne $b) { throw ('GUI click installed incorrect '+$bin) }
+          }
+          Get-Content $ok
+          Write-Host 'PASS: real Setup.exe Browse and Install handlers completed; installed payload SHA256 verified'
+
       - name: Package executable and corresponding source
         shell: pwsh
         run: |
