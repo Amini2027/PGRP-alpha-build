@@ -18,6 +18,16 @@ function Log([string]$m) {
     Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
     if($Silent) { Write-Host $line }
 }
+function Get-PgrpSHA256([string]$FilePath) {
+    $sha=[System.Security.Cryptography.SHA256]::Create()
+    $stream=[System.IO.File]::OpenRead($FilePath)
+    try {
+        return [System.BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','')
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
 function Resolve-Gta([string]$InputPath) {
     if([string]::IsNullOrWhiteSpace($InputPath)) { throw "Select an existing GTA San Andreas gta_sa.exe first." }
     $p=$InputPath.Trim().Trim('"')
@@ -79,8 +89,8 @@ function Install-Gta([string]$GtaFile) {
         foreach($bin in @(@{name="opensamp.exe";src=$ExeAsset},@{name="Client.Native.dll";src=$DllAsset})) {
             $out=Join-Path $dest $bin.name
             Copy-Item -LiteralPath $bin.src -Destination $out -Force -ErrorAction Stop
-            $h1=(Get-FileHash -LiteralPath $bin.src -Algorithm SHA256).Hash
-            $h2=(Get-FileHash -LiteralPath $out -Algorithm SHA256).Hash
+            $h1=(Get-PgrpSHA256 $bin.src)
+            $h2=(Get-PgrpSHA256 $out)
             if($h1 -ne $h2) { throw ("Installed binary mismatch: "+$bin.name) }
             Log ($bin.name+" SHA256 verified: "+$h2)
         }
@@ -89,8 +99,8 @@ function Install-Gta([string]$GtaFile) {
             ("Installed: "+(Get-Date -Format o)),
             ("Source game: "+$sourceExe),
             ("Installed game: "+$dest),
-            ("opensamp.exe SHA256: "+(Get-FileHash (Join-Path $dest "opensamp.exe") -Algorithm SHA256).Hash),
-            ("Client.Native.dll SHA256: "+(Get-FileHash (Join-Path $dest "Client.Native.dll") -Algorithm SHA256).Hash),
+            ("opensamp.exe SHA256: "+(Get-PgrpSHA256 (Join-Path $dest "opensamp.exe"))),
+            ("Client.Native.dll SHA256: "+(Get-PgrpSHA256 (Join-Path $dest "Client.Native.dll"))),
             "Server: 46.38.138.33:7777",
             "This setup never alters server-side account records."
         )
@@ -302,7 +312,7 @@ try {
     }
 } catch {
     Log ("SETUP FAILED: "+$_.Exception.Message)
-    if($Silent) { throw }
+    if($Silent -or $UiActionSmoke -or $UiSmoke) { throw }
     try { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,"PGRP Setup error","OK","Error") | Out-Null } catch {}
     exit 1
 }
