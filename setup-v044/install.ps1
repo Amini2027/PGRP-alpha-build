@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][string]$AssetsDir,
     [string]$SourceGTA = "",
     [string]$InstallRoot = "",
-    [switch]$Silent
+    [switch]$Silent,
+    [switch]$UiSmoke
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -131,24 +132,24 @@ try {
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form=New-Object System.Windows.Forms.Form
     $form.Text="PALADIN GUARD | RolePlay v0.4.4 Setup"
-    $form.ClientSize=New-Object System.Drawing.Size(740,370)
+    $form.ClientSize=[System.Drawing.Size]::new(740,370)
     $form.StartPosition="CenterScreen"
     $form.FormBorderStyle="FixedDialog"
     $form.MaximizeBox=$false
-    $form.Font=New-Object System.Drawing.Font("Segoe UI",10)
+    $form.Font=[System.Drawing.Font]::new("Segoe UI",10)
     $heading=New-Object System.Windows.Forms.Label
     $heading.Text="Fresh PGRP v0.4.4 setup - repaired client bundled"
-    $heading.Location=New-Object System.Drawing.Point(22,20)
+    $heading.Location=[System.Drawing.Point]::new(22,20)
     $heading.AutoSize=$true
     $form.Controls.Add($heading)
     $caption=New-Object System.Windows.Forms.Label
     $caption.Text="Select an existing GTA San Andreas gta_sa.exe:"
-    $caption.Location=New-Object System.Drawing.Point(22,64)
+    $caption.Location=[System.Drawing.Point]::new(22,64)
     $caption.AutoSize=$true
     $form.Controls.Add($caption)
     $input=New-Object System.Windows.Forms.TextBox
-    $input.Location=New-Object System.Drawing.Point(22,94)
-    $input.Size=New-Object System.Drawing.Size(558,30)
+    $input.Location=[System.Drawing.Point]::new(22,94)
+    $input.Size=[System.Drawing.Size]::new(558,30)
     foreach($candidate in @(
         (Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.2\GTA_San_Andreas\gta_sa.exe"),
         "C:\Program Files (x86)\Rockstar Games\GTA San Andreas\gta_sa.exe"
@@ -158,8 +159,8 @@ try {
     $form.Controls.Add($input)
     $browse=New-Object System.Windows.Forms.Button
     $browse.Text="Browse GTA"
-    $browse.Location=New-Object System.Drawing.Point(594,92)
-    $browse.Size=New-Object System.Drawing.Size(122,34)
+    $browse.Location=[System.Drawing.Point]::new(594,92)
+    $browse.Size=[System.Drawing.Size]::new(122,34)
     $browse.Add_Click({
         $picker=New-Object System.Windows.Forms.OpenFileDialog
         $picker.Title="Locate gta_sa.exe"
@@ -172,30 +173,30 @@ try {
     })
     $form.Controls.Add($browse)
     $destInfo=New-Object System.Windows.Forms.Label
-    $destInfo.Location=New-Object System.Drawing.Point(22,151)
-    $destInfo.Size=New-Object System.Drawing.Size(694,49)
+    $destInfo.Location=[System.Drawing.Point]::new(22,151)
+    $destInfo.Size=[System.Drawing.Size]::new(694,49)
     $destInfo.Text=("New independent install: "+(Join-Path $DefaultRoot "GTA_San_Andreas"))
     $form.Controls.Add($destInfo)
     $note=New-Object System.Windows.Forms.Label
-    $note.Location=New-Object System.Drawing.Point(22,205)
-    $note.Size=New-Object System.Drawing.Size(694,44)
+    $note.Location=[System.Drawing.Point]::new(22,205)
+    $note.Size=[System.Drawing.Size]::new(694,44)
     $note.Text="This setup never deletes GTA or the previous v0.4.2 installation. Remove v0.4.2 only after confirming the new version works."
     $form.Controls.Add($note)
     $progress=New-Object System.Windows.Forms.ProgressBar
-    $progress.Location=New-Object System.Drawing.Point(22,257)
-    $progress.Size=New-Object System.Drawing.Size(694,16)
+    $progress.Location=[System.Drawing.Point]::new(22,257)
+    $progress.Size=[System.Drawing.Size]::new(694,16)
     $progress.Style="Marquee"
     $progress.Visible=$false
     $form.Controls.Add($progress)
     $status=New-Object System.Windows.Forms.Label
-    $status.Location=New-Object System.Drawing.Point(22,282)
-    $status.Size=New-Object System.Drawing.Size(694,25)
+    $status.Location=[System.Drawing.Point]::new(22,282)
+    $status.Size=[System.Drawing.Size]::new(694,25)
     $status.Text="Ready for installation"
     $form.Controls.Add($status)
     $install=New-Object System.Windows.Forms.Button
     $install.Text="Install PGRP v0.4.4"
-    $install.Location=New-Object System.Drawing.Point(22,316)
-    $install.Size=New-Object System.Drawing.Size(230,35)
+    $install.Location=[System.Drawing.Point]::new(22,316)
+    $install.Size=[System.Drawing.Size]::new(230,35)
     $install.Add_Click({
         $install.Enabled=$false
         $browse.Enabled=$false
@@ -219,7 +220,28 @@ try {
         }
     })
     $form.Controls.Add($install)
+    if ($UiSmoke) {
+        $probePath = Join-Path $env:TEMP "PGRP_v044_UI_Smoke.ok"
+        Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+        $form.Add_Shown({
+            $visible=$form.Visible
+            Log ("WinForms Shown fired; Visible=" + $visible)
+            if ($visible) {
+                [IO.File]::WriteAllText($probePath, "WINFORMS_VISIBLE=TRUE")
+            }
+            $script:smokeTimer=New-Object System.Windows.Forms.Timer
+            $script:smokeTimer.Interval=1500
+            $script:smokeTimer.Add_Tick({
+                $script:smokeTimer.Stop()
+                $form.Close()
+            })
+            $script:smokeTimer.Start()
+        })
+    }
     [void]$form.ShowDialog()
+    if ($UiSmoke -and -not (Test-Path -LiteralPath $probePath -PathType Leaf)) {
+        throw 'Installer GUI probe did not observe a visible Shown event.'
+    }
 } catch {
     Log ("SETUP FAILED: "+$_.Exception.Message)
     if($Silent) { throw }
