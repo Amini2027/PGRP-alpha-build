@@ -1,0 +1,228 @@
+param(
+    [Parameter(Mandatory=$true)][string]$AssetsDir,
+    [string]$SourceGTA = "",
+    [string]$InstallRoot = "",
+    [switch]$Silent
+)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$LogPath=Join-Path $env:TEMP "PGRP_v044_Setup.log"
+$DefaultRoot=Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.4"
+if(-not $InstallRoot) { $InstallRoot=$DefaultRoot }
+$DllAsset=Join-Path $AssetsDir "Client.Native.dll"
+$ExeAsset=Join-Path $AssetsDir "opensamp.exe"
+function Log([string]$m) {
+    $line=("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"),$m)
+    Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
+    if($Silent) { Write-Host $line }
+}
+function Resolve-Gta([string]$InputPath) {
+    if([string]::IsNullOrWhiteSpace($InputPath)) { throw "Select an existing GTA San Andreas gta_sa.exe first." }
+    $p=$InputPath.Trim().Trim('"')
+    if(Test-Path -LiteralPath $p -PathType Container) { $p=Join-Path $p "gta_sa.exe" }
+    if(-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw ("GTA not found: " + $p) }
+    if((Split-Path -Leaf $p) -ine "gta_sa.exe") { throw "Please select gta_sa.exe" }
+    $full=(Resolve-Path -LiteralPath $p).Path
+    $dir=Split-Path -Parent $full
+    foreach($subdir in @("models","data")) {
+        if(-not (Test-Path -LiteralPath (Join-Path $dir $subdir) -PathType Container)) {
+            throw ("GTA installation incomplete: missing " + $subdir)
+        }
+    }
+    return $full
+}
+function Install-Gta([string]$GtaFile) {
+    foreach($file in @($DllAsset,$ExeAsset)) {
+        if(-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw ("Setup payload missing: "+$file) }
+    }
+    $sourceExe=Resolve-Gta $GtaFile
+    $src=Split-Path -Parent $sourceExe
+    $destRoot=[IO.Path]::GetFullPath($InstallRoot)
+    $dest=Join-Path $destRoot "GTA_San_Andreas"
+    if($src.TrimEnd('\') -ieq $dest.TrimEnd('\')) { throw "Source and target folders cannot be identical." }
+    foreach($n in @("gta_sa","opensamp")) {
+        if(Get-Process -Name $n -ErrorAction SilentlyContinue) { throw ("Close "+$n+".exe before installation.") }
+    }
+    Log ("Selected GTA: "+$sourceExe)
+    Log ("Clean destination: "+$dest)
+    $parent=Split-Path -Parent $destRoot
+    if(-not (Test-Path -LiteralPath $parent -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $parent -Force)
+    }
+    $previous=""
+    if(Test-Path -LiteralPath $destRoot) {
+        $previous=$destRoot+".backup_"+(Get-Date -Format "yyyyMMdd_HHmmss")
+        Move-Item -LiteralPath $destRoot -Destination $previous -ErrorAction Stop
+        Log ("Previous v0.4.4 copy backed up to "+$previous)
+    }
+    try {
+        [void](New-Item -ItemType Directory -Path $dest -Force)
+        Log "Copying GTA content without changing the original game..."
+        $args=('"{0}" "{1}" /E /XJ /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NP /NFL /NDL /NJH /NJS /XF opensamp.exe Client.Native.dll /XD crash' -f $src,$dest)
+        $psi=New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName="robocopy.exe"
+        $psi.Arguments=$args
+        $psi.UseShellExecute=$false
+        $psi.CreateNoWindow=$true
+        $p=[System.Diagnostics.Process]::Start($psi)
+        while(-not $p.HasExited) {
+            Start-Sleep -Milliseconds 200
+            if(-not $Silent) { [System.Windows.Forms.Application]::DoEvents() }
+        }
+        Log ("Robocopy result="+$p.ExitCode)
+        if($p.ExitCode -ge 8) { throw ("Failed to copy game files, Robocopy exit "+$p.ExitCode) }
+        if(-not (Test-Path -LiteralPath (Join-Path $dest "gta_sa.exe") -PathType Leaf)) {
+            throw "The copied GTA directory does not contain gta_sa.exe."
+        }
+        foreach($bin in @(@{name="opensamp.exe";src=$ExeAsset},@{name="Client.Native.dll";src=$DllAsset})) {
+            $out=Join-Path $dest $bin.name
+            Copy-Item -LiteralPath $bin.src -Destination $out -Force -ErrorAction Stop
+            $h1=(Get-FileHash -LiteralPath $bin.src -Algorithm SHA256).Hash
+            $h2=(Get-FileHash -LiteralPath $out -Algorithm SHA256).Hash
+            if($h1 -ne $h2) { throw ("Installed binary mismatch: "+$bin.name) }
+            Log ($bin.name+" SHA256 verified: "+$h2)
+        }
+        $manifest=@(
+            "PGRP Alpha v0.4.4 - standalone release",
+            ("Installed: "+(Get-Date -Format o)),
+            ("Source game: "+$sourceExe),
+            ("Installed game: "+$dest),
+            ("opensamp.exe SHA256: "+(Get-FileHash (Join-Path $dest "opensamp.exe") -Algorithm SHA256).Hash),
+            ("Client.Native.dll SHA256: "+(Get-FileHash (Join-Path $dest "Client.Native.dll") -Algorithm SHA256).Hash),
+            "Server: 46.38.138.33:7777",
+            "This setup never alters server-side account records."
+        )
+        [IO.File]::WriteAllLines((Join-Path $destRoot "PGRP_Installed_Version.txt"),$manifest,[Text.Encoding]::UTF8)
+        $cmd= '@echo off'+[Environment]::NewLine+'cd /d "%~dp0GTA_San_Andreas"'+[Environment]::NewLine+'start "" "opensamp.exe"'+[Environment]::NewLine
+        [IO.File]::WriteAllText((Join-Path $destRoot "PGRP_Play.cmd"),$cmd,[Text.Encoding]::ASCII)
+        try {
+            $shell=New-Object -ComObject WScript.Shell
+            $desk=[Environment]::GetFolderPath("DesktopDirectory")
+            if($desk) {
+                $shortcut=$shell.CreateShortcut((Join-Path $desk "PGRP Alpha v0.4.4.lnk"))
+                $shortcut.TargetPath=Join-Path $dest "opensamp.exe"
+                $shortcut.WorkingDirectory=$dest
+                $shortcut.Description="Paladin Guard RolePlay v0.4.4"
+                $shortcut.Save()
+            }
+        } catch { Log ("Shortcut skipped: "+$_.Exception.Message) }
+        Log "SUCCESS: Clean PGRP v0.4.4 installed, old PGRP v0.4.2 unchanged."
+        return $destRoot
+    } catch {
+        Log ("ERROR: "+$_.Exception.Message)
+        if(Test-Path -LiteralPath $destRoot) {
+            try { Remove-Item -LiteralPath $destRoot -Recurse -Force -ErrorAction Stop }
+            catch { Log ("Partial destination cleanup failed: "+$_.Exception.Message) }
+        }
+        if($previous -and (Test-Path -LiteralPath $previous) -and -not (Test-Path -LiteralPath $destRoot)) {
+            Move-Item -LiteralPath $previous -Destination $destRoot
+            Log "Restored previous v0.4.4 installation."
+        }
+        throw
+    }
+}
+try {
+    if($Silent) {
+        Install-Gta $SourceGTA | Out-Null
+        exit 0
+    }
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+    $form=New-Object System.Windows.Forms.Form
+    $form.Text="PALADIN GUARD | RolePlay v0.4.4 Setup"
+    $form.ClientSize=New-Object System.Drawing.Size(740,370)
+    $form.StartPosition="CenterScreen"
+    $form.FormBorderStyle="FixedDialog"
+    $form.MaximizeBox=$false
+    $form.Font=New-Object System.Drawing.Font("Segoe UI",10)
+    $heading=New-Object System.Windows.Forms.Label
+    $heading.Text="Fresh PGRP v0.4.4 setup - repaired client bundled"
+    $heading.Location=New-Object System.Drawing.Point(22,20)
+    $heading.AutoSize=$true
+    $form.Controls.Add($heading)
+    $caption=New-Object System.Windows.Forms.Label
+    $caption.Text="Select an existing GTA San Andreas gta_sa.exe:"
+    $caption.Location=New-Object System.Drawing.Point(22,64)
+    $caption.AutoSize=$true
+    $form.Controls.Add($caption)
+    $input=New-Object System.Windows.Forms.TextBox
+    $input.Location=New-Object System.Drawing.Point(22,94)
+    $input.Size=New-Object System.Drawing.Size(558,30)
+    foreach($candidate in @(
+        (Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.2\GTA_San_Andreas\gta_sa.exe"),
+        "C:\Program Files (x86)\Rockstar Games\GTA San Andreas\gta_sa.exe"
+    )) {
+        if(Test-Path -LiteralPath $candidate -PathType Leaf) { $input.Text=$candidate; break }
+    }
+    $form.Controls.Add($input)
+    $browse=New-Object System.Windows.Forms.Button
+    $browse.Text="Browse GTA"
+    $browse.Location=New-Object System.Drawing.Point(594,92)
+    $browse.Size=New-Object System.Drawing.Size(122,34)
+    $browse.Add_Click({
+        $picker=New-Object System.Windows.Forms.OpenFileDialog
+        $picker.Title="Locate gta_sa.exe"
+        $picker.Filter="GTA executable (gta_sa.exe)|gta_sa.exe|EXE (*.exe)|*.exe"
+        $picker.CheckFileExists=$true
+        if($picker.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $input.Text=$picker.FileName
+        }
+        $picker.Dispose()
+    })
+    $form.Controls.Add($browse)
+    $destInfo=New-Object System.Windows.Forms.Label
+    $destInfo.Location=New-Object System.Drawing.Point(22,151)
+    $destInfo.Size=New-Object System.Drawing.Size(694,49)
+    $destInfo.Text=("New independent install: "+(Join-Path $DefaultRoot "GTA_San_Andreas"))
+    $form.Controls.Add($destInfo)
+    $note=New-Object System.Windows.Forms.Label
+    $note.Location=New-Object System.Drawing.Point(22,205)
+    $note.Size=New-Object System.Drawing.Size(694,44)
+    $note.Text="This setup never deletes GTA or the previous v0.4.2 installation. Remove v0.4.2 only after confirming the new version works."
+    $form.Controls.Add($note)
+    $progress=New-Object System.Windows.Forms.ProgressBar
+    $progress.Location=New-Object System.Drawing.Point(22,257)
+    $progress.Size=New-Object System.Drawing.Size(694,16)
+    $progress.Style="Marquee"
+    $progress.Visible=$false
+    $form.Controls.Add($progress)
+    $status=New-Object System.Windows.Forms.Label
+    $status.Location=New-Object System.Drawing.Point(22,282)
+    $status.Size=New-Object System.Drawing.Size(694,25)
+    $status.Text="Ready for installation"
+    $form.Controls.Add($status)
+    $install=New-Object System.Windows.Forms.Button
+    $install.Text="Install PGRP v0.4.4"
+    $install.Location=New-Object System.Drawing.Point(22,316)
+    $install.Size=New-Object System.Drawing.Size(230,35)
+    $install.Add_Click({
+        $install.Enabled=$false
+        $browse.Enabled=$false
+        $input.Enabled=$false
+        $progress.Visible=$true
+        $status.Text="Copying and verifying files, please wait..."
+        [System.Windows.Forms.Application]::DoEvents()
+        try {
+            $installed=Install-Gta $input.Text
+            $status.Text="Installation completed!"
+            [System.Windows.Forms.MessageBox]::Show($form,("PGRP v0.4.4 installed successfully at:"+[Environment]::NewLine+$installed),"PGRP Setup","OK","Information") | Out-Null
+            $form.Close()
+        } catch {
+            $status.Text="Installation failed. See PGRP_v044_Setup.log in TEMP."
+            [System.Windows.Forms.MessageBox]::Show($form,($_.Exception.Message+[Environment]::NewLine+"Log: "+$LogPath),"PGRP Setup error","OK","Error") | Out-Null
+        } finally {
+            $install.Enabled=$true
+            $browse.Enabled=$true
+            $input.Enabled=$true
+            $progress.Visible=$false
+        }
+    })
+    $form.Controls.Add($install)
+    [void]$form.ShowDialog()
+} catch {
+    Log ("SETUP FAILED: "+$_.Exception.Message)
+    if($Silent) { throw }
+    try { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,"PGRP Setup error","OK","Error") | Out-Null } catch {}
+    exit 1
+}
