@@ -38,24 +38,14 @@ Patch 'native/sampraknet_bridge.cpp' @'
 
     if (bIsSpectating && !bToggle && !iSpawned)
 '@
-Patch 'native/sampraknet_bridge.cpp' @'
-    bIsSpectating = bToggle;
-}
-
-// RPC 70
-'@ @'
+Patch 'native/sampraknet_bridge.cpp' '    bIsSpectating = bToggle;' @'
     bIsSpectating = (bToggle != 0);
     if (!bIsSpectating)
     {
-        // Login left a fixed/spectator camera active. The server's spawn
-        // coordinates may already be correct (radar correct), but the view
-        // remains at the login-camera target without this restoration.
+        // Always restore the login camera to the local player after spawn.
         gta::sa::CameraRestore();
         Log("[Camera] reset behind local player after Spectating=false");
     }
-}
-
-// RPC 70
 '@
 Patch 'native/sampraknet_bridge.cpp' @'
     bIsSpectating = false;
