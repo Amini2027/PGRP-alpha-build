@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"unicode/utf16"
 	"unsafe"
 )
 
@@ -77,4 +76,3 @@ func main() {
 	}
 }
 
-var _ = utf16.RuneLen
