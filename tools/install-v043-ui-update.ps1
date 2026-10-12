@@ -80,7 +80,7 @@ try {
         throw 'Staging verification failed before replacement.'
     }
     if ($targetFile) {
-        [System.IO.File]::Replace($staged, $target, $null, $true)
+        [System.IO.File]::Replace($staged, $target, (Join-Path $backup 'Client.Native.dll.replaced'), $true)
     } else {
         Move-Item -LiteralPath $staged -Destination $target -ErrorAction Stop
     }
