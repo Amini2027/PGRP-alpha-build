@@ -4,7 +4,7 @@ function Patch([string]$Path,[string]$Before,[string]$After) {
  $full=(Resolve-Path -LiteralPath (Join-Path $Root $Path)).Path
  $s=[IO.File]::ReadAllText($full)
  $hits=([regex]::Matches($s,[regex]::Escape($Before))).Count
- if($hits -ne 1) { throw "Patch expected one occurrence $Path: $hits" }
+ if($hits -ne 1) { throw "Patch expected one occurrence ${Path}: $hits" }
  [IO.File]::WriteAllText($full,$s.Replace($Before,$After),[Text.UTF8Encoding]::new($false))
  Write-Host ("PGRP PC1 Camera/Patch fix: "+$Path)
 }
