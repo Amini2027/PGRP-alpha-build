@@ -164,6 +164,24 @@ jobs:
           '@
           [System.IO.File]::WriteAllText((Join-Path $out 'PGRP_Test_DELAYED_STAGE0.cmd'), $delayed, [System.Text.Encoding]::ASCII)
           Write-Host 'Packaged passive DLL and delayed stage-0 tests'
+          Copy-Item -LiteralPath 'tools\install-v043-ui-update.ps1' -Destination (Join-Path $out 'install-v043-ui-update.ps1')
+          $cmd = @'
+          @echo off
+          setlocal
+          cd /d "%~dp0"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-v043-ui-update.ps1"
+          set "PGRP_RESULT=%ERRORLEVEL%"
+          echo.
+          if not "%PGRP_RESULT%"=="0" (
+            echo Installation failed. See %%TEMP%%\PGRP_v043_Install_Log.txt
+          ) else (
+            echo Update completed. Original opensamp.exe retained.
+          )
+          pause
+          exit /b %PGRP_RESULT%
+          '@
+          [IO.File]::WriteAllText((Join-Path $out 'PGRP_Install_or_Update.cmd'), $cmd, [Text.Encoding]::ASCII)
+          Write-Host 'Included original launcher-preserving, CI-tested updater'
           Copy-Item -LiteralPath 'upstream\LICENSE' -Destination (Join-Path $out 'LICENSE.txt')
           Copy-Item -LiteralPath 'upstream\THIRD-PARTY-NOTICES.md' -Destination $out
           @(
