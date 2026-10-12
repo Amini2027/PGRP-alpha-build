@@ -109,7 +109,7 @@ PatchOne 'native/sampraknet_bridge.cpp' @'
 '@ 'disable pre-auth auto-spawn PGRP'
 
 PatchOne 'native/sampraknet_bridge.cpp' @'
-        // Server is authoritative for time — vanilla CClock keeps ticking
+        // Server-authoritative world state: GTA's own CClock and CWeather
 '@ @'
         // A single PGRP spawn handshake follows successful server auth:
         // 1. SetSpawnInfo (NPC/skin/position), 2. ToggleSpectating(false).
@@ -123,7 +123,7 @@ PatchOne 'native/sampraknet_bridge.cpp' @'
             s_spawnStage = SpawnStage::Done;
         }
 
-        // Server is authoritative for time — vanilla CClock keeps ticking
+        // Server-authoritative world state: GTA's own CClock and CWeather
 '@ 'authenticated-only first spawn'
 
 PatchOne 'native/sampraknet_bridge.cpp' @'
