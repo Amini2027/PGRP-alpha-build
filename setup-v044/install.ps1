@@ -3,7 +3,8 @@ param(
     [string]$SourceGTA = "",
     [string]$InstallRoot = "",
     [switch]$Silent,
-    [switch]$UiSmoke
+    [switch]$UiSmoke,
+    [switch]$UiActionSmoke
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -147,27 +148,33 @@ try {
     $caption.Location=[System.Drawing.Point]::new(22,64)
     $caption.AutoSize=$true
     $form.Controls.Add($caption)
-    $input=New-Object System.Windows.Forms.TextBox
-    $input.Location=[System.Drawing.Point]::new(22,94)
-    $input.Size=[System.Drawing.Size]::new(558,30)
+    $script:gtaExeTextBox=New-Object System.Windows.Forms.TextBox
+    $script:gtaExeTextBox.Location=[System.Drawing.Point]::new(22,94)
+    $script:gtaExeTextBox.Size=[System.Drawing.Size]::new(558,30)
     foreach($candidate in @(
         (Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.2\GTA_San_Andreas\gta_sa.exe"),
         "C:\Program Files (x86)\Rockstar Games\GTA San Andreas\gta_sa.exe"
     )) {
-        if(Test-Path -LiteralPath $candidate -PathType Leaf) { $input.Text=$candidate; break }
+        if(Test-Path -LiteralPath $candidate -PathType Leaf) { $script:gtaExeTextBox.Text=$candidate; break }
     }
-    $form.Controls.Add($input)
+    $form.Controls.Add($script:gtaExeTextBox)
     $browse=New-Object System.Windows.Forms.Button
     $browse.Text="Browse GTA"
     $browse.Location=[System.Drawing.Point]::new(594,92)
     $browse.Size=[System.Drawing.Size]::new(122,34)
     $browse.Add_Click({
+        if ($UiActionSmoke) {
+            if (-not $SourceGTA) { throw "GUI Action Smoke requires -SourceGTA" }
+            $script:gtaExeTextBox.Text=$SourceGTA
+            Log ("Browse-click smoke: GTA textbox updated to "+$script:gtaExeTextBox.Text)
+            return
+        }
         $picker=New-Object System.Windows.Forms.OpenFileDialog
         $picker.Title="Locate gta_sa.exe"
         $picker.Filter="GTA executable (gta_sa.exe)|gta_sa.exe|EXE (*.exe)|*.exe"
         $picker.CheckFileExists=$true
         if($picker.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
-            $input.Text=$picker.FileName
+            $script:gtaExeTextBox.Text=$picker.FileName
         }
         $picker.Dispose()
     })
@@ -200,26 +207,63 @@ try {
     $install.Add_Click({
         $install.Enabled=$false
         $browse.Enabled=$false
-        $input.Enabled=$false
+        $script:gtaExeTextBox.Enabled=$false
         $progress.Visible=$true
         $status.Text="Copying and verifying files, please wait..."
         [System.Windows.Forms.Application]::DoEvents()
         try {
-            $installed=Install-Gta $input.Text
+            $selectedGtaPath=$script:gtaExeTextBox.Text
+            Log ("Install-click: received GTA path " + $selectedGtaPath)
+            $installed=Install-Gta $selectedGtaPath
             $status.Text="Installation completed!"
-            [System.Windows.Forms.MessageBox]::Show($form,("PGRP v0.4.4 installed successfully at:"+[Environment]::NewLine+$installed),"PGRP Setup","OK","Information") | Out-Null
+            if ($UiActionSmoke) {
+                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.ok"), "UI_BROWSE_AND_INSTALL_PASS=" + $selectedGtaPath)
+                Log "Install-click smoke succeeded; exiting dialog automatically."
+            } else {
+                [System.Windows.Forms.MessageBox]::Show($form,("PGRP v0.4.4 installed successfully at:"+[Environment]::NewLine+$installed),"PGRP Setup","OK","Information") | Out-Null
+            }
             $form.Close()
         } catch {
             $status.Text="Installation failed. See PGRP_v044_Setup.log in TEMP."
-            [System.Windows.Forms.MessageBox]::Show($form,($_.Exception.Message+[Environment]::NewLine+"Log: "+$LogPath),"PGRP Setup error","OK","Error") | Out-Null
+            Log ("Install UI failure: " + $_.Exception.ToString())
+            if ($UiActionSmoke) {
+                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.error"), $_.Exception.ToString())
+                $form.Close()
+            } else {
+                [System.Windows.Forms.MessageBox]::Show($form,($_.Exception.Message+[Environment]::NewLine+"Log: "+$LogPath),"PGRP Setup error","OK","Error") | Out-Null
+            }
         } finally {
             $install.Enabled=$true
             $browse.Enabled=$true
-            $input.Enabled=$true
+            $script:gtaExeTextBox.Enabled=$true
             $progress.Visible=$false
         }
     })
     $form.Controls.Add($install)
+    if ($UiActionSmoke) {
+        $successPath=Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.ok"
+        $errorPath=Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.error"
+        Remove-Item -LiteralPath $successPath,$errorPath -Force -ErrorAction SilentlyContinue
+        $form.Add_Shown({
+            $script:actionSmokeTimer=New-Object System.Windows.Forms.Timer
+            $script:actionSmokeTimer.Interval=500
+            $script:actionSmokeTimer.Add_Tick({
+                $script:actionSmokeTimer.Stop()
+                try {
+                    $browse.PerformClick()
+                    if ($script:gtaExeTextBox.Text -ne $SourceGTA) {
+                        throw 'Browse handler did not update the TextBox'
+                    }
+                    Log ('GUI action smoke clicking Install for '+$script:gtaExeTextBox.Text)
+                    $install.PerformClick()
+                } catch {
+                    [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v044_UI_Action_Smoke.error"), $_.Exception.ToString())
+                    $form.Close()
+                }
+            })
+            $script:actionSmokeTimer.Start()
+        })
+    }
     if ($UiSmoke) {
         $probePath = Join-Path $env:TEMP "PGRP_v044_UI_Smoke.ok"
         Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
@@ -241,6 +285,15 @@ try {
     [void]$form.ShowDialog()
     if ($UiSmoke -and -not (Test-Path -LiteralPath $probePath -PathType Leaf)) {
         throw 'Installer GUI probe did not observe a visible Shown event.'
+    }
+    if ($UiActionSmoke) {
+        if (Test-Path -LiteralPath $errorPath -PathType Leaf) {
+            throw ('GUI Browse/Install smoke failed: '+(Get-Content -LiteralPath $errorPath -Raw))
+        }
+        if (-not (Test-Path -LiteralPath $successPath -PathType Leaf)) {
+            throw 'GUI Browse/Install smoke did not report success.'
+        }
+        Log 'GUI Action Smoke succeeded.'
     }
 } catch {
     Log ("SETUP FAILED: "+$_.Exception.Message)
