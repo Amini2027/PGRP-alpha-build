@@ -98,6 +98,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Embedded resource verification failed' }
           Get-FileHash 'PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe' -Algorithm SHA256 | Format-List
 
+      - name: Exercise the actual Setup.exe WinForms GUI startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $marker = Join-Path $env:TEMP 'PGRP_v044_UI_Smoke.ok'
+          Remove-Item $marker -Force -ErrorAction SilentlyContinue
+          $exe = (Resolve-Path '.\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe').Path
+          $setup = Start-Process -FilePath $exe -ArgumentList @('-UiSmoke') -PassThru
+          if (-not $setup.WaitForExit(45000)) {
+            Stop-Process -Id $setup.Id -Force -ErrorAction SilentlyContinue
+            throw 'Actual installer GUI did not complete the startup smoke test in 45 seconds'
+          }
+          if ($setup.ExitCode -ne 0) { throw ('GUI smoke failed. Exit code: ' + $setup.ExitCode) }
+          if (-not (Test-Path $marker -PathType Leaf)) {
+            Write-Host 'Installer boot log:'
+            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup_Boot.log') -ErrorAction SilentlyContinue
+            Write-Host 'Installer PowerShell log:'
+            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup.log') -ErrorAction SilentlyContinue
+            throw 'WinForms GUI did not report its visible Shown event'
+          }
+          Get-Content $marker
+          Write-Host 'PASS: Real Setup.exe launches a visible WinForms window (then auto-closes in CI probe mode)'
+
       - name: Package executable and corresponding source
         shell: pwsh
         run: |
