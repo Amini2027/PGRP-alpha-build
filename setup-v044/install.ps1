@@ -8,8 +8,8 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$LogPath=Join-Path $env:TEMP "PGRP_v048_Setup.log"
-$DefaultRoot=Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.8"
+$LogPath=Join-Path $env:TEMP "PGRP_v049_Setup.log"
+$DefaultRoot=Join-Path $env:LOCALAPPDATA "PaladinGuard\PGRP_Alpha_v0.4.9"
 if(-not $InstallRoot) { $InstallRoot=$DefaultRoot }
 $DllAsset=Join-Path $AssetsDir "Client.Native.dll"
 $ExeAsset=Join-Path $AssetsDir "opensamp.exe"
@@ -65,7 +65,7 @@ function Install-Gta([string]$GtaFile) {
     if(Test-Path -LiteralPath $destRoot) {
         $previous=$destRoot+".backup_"+(Get-Date -Format "yyyyMMdd_HHmmss")
         Move-Item -LiteralPath $destRoot -Destination $previous -ErrorAction Stop
-        Log ("Previous v0.4.8 copy backed up to "+$previous)
+        Log ("Previous v0.4.9 copy backed up to "+$previous)
     }
     try {
         [void](New-Item -ItemType Directory -Path $dest -Force)
@@ -95,7 +95,7 @@ function Install-Gta([string]$GtaFile) {
             Log ($bin.name+" SHA256 verified: "+$h2)
         }
         $manifest=@(
-            "PGRP Alpha v0.4.8 - standalone release",
+            "PGRP Alpha v0.4.9 - standalone release",
             ("Installed: "+(Get-Date -Format o)),
             ("Source game: "+$sourceExe),
             ("Installed game: "+$dest),
@@ -111,14 +111,14 @@ function Install-Gta([string]$GtaFile) {
             $shell=New-Object -ComObject WScript.Shell
             $desk=[Environment]::GetFolderPath("DesktopDirectory")
             if($desk) {
-                $shortcut=$shell.CreateShortcut((Join-Path $desk "PGRP Alpha v0.4.8.lnk"))
+                $shortcut=$shell.CreateShortcut((Join-Path $desk "PGRP Alpha v0.4.9.lnk"))
                 $shortcut.TargetPath=Join-Path $dest "opensamp.exe"
                 $shortcut.WorkingDirectory=$dest
-                $shortcut.Description="Paladin Guard RolePlay v0.4.8"
+                $shortcut.Description="Paladin Guard RolePlay v0.4.9"
                 $shortcut.Save()
             }
         } catch { Log ("Shortcut skipped: "+$_.Exception.Message) }
-        Log "SUCCESS: Clean PGRP v0.4.8 installed, old PGRP v0.4.2 unchanged."
+        Log "SUCCESS: Clean PGRP v0.4.9 installed, old PGRP v0.4.2 unchanged."
         return $destRoot
     } catch {
         Log ("ERROR: "+$_.Exception.Message)
@@ -128,7 +128,7 @@ function Install-Gta([string]$GtaFile) {
         }
         if($previous -and (Test-Path -LiteralPath $previous) -and -not (Test-Path -LiteralPath $destRoot)) {
             Move-Item -LiteralPath $previous -Destination $destRoot
-            Log "Restored previous v0.4.8 installation."
+            Log "Restored previous v0.4.9 installation."
         }
         throw
     }
@@ -142,14 +142,14 @@ try {
     Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form=New-Object System.Windows.Forms.Form
-    $form.Text="PALADIN GUARD | RolePlay v0.4.8 Setup"
+    $form.Text="PALADIN GUARD | RolePlay v0.4.9 Setup"
     $form.ClientSize=[System.Drawing.Size]::new(740,370)
     $form.StartPosition="CenterScreen"
     $form.FormBorderStyle="FixedDialog"
     $form.MaximizeBox=$false
     $form.Font=[System.Drawing.Font]::new("Segoe UI",10)
     $heading=New-Object System.Windows.Forms.Label
-    $heading.Text="Fresh PGRP v0.4.8 setup - repaired client bundled"
+    $heading.Text="Fresh PGRP v0.4.9 setup - repaired client bundled"
     $heading.Location=[System.Drawing.Point]::new(22,20)
     $heading.AutoSize=$true
     $form.Controls.Add($heading)
@@ -212,7 +212,7 @@ try {
     $status.Text="Ready for installation"
     $form.Controls.Add($status)
     $install=New-Object System.Windows.Forms.Button
-    $install.Text="Install PGRP v0.4.8"
+    $install.Text="Install PGRP v0.4.9"
     $install.Location=[System.Drawing.Point]::new(22,316)
     $install.Size=[System.Drawing.Size]::new(230,35)
     $install.Add_Click({
@@ -228,17 +228,17 @@ try {
             $installed=Install-Gta $selectedGtaPath
             $status.Text="Installation completed!"
             if ($UiActionSmoke) {
-                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v048_UI_Action_Smoke.ok"), "UI_BROWSE_AND_INSTALL_PASS=" + $selectedGtaPath)
+                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v049_UI_Action_Smoke.ok"), "UI_BROWSE_AND_INSTALL_PASS=" + $selectedGtaPath)
                 Log "Install-click smoke succeeded; exiting dialog automatically."
             } else {
-                [System.Windows.Forms.MessageBox]::Show($form,("PGRP v0.4.8 installed successfully at:"+[Environment]::NewLine+$installed),"PGRP Setup","OK","Information") | Out-Null
+                [System.Windows.Forms.MessageBox]::Show($form,("PGRP v0.4.9 installed successfully at:"+[Environment]::NewLine+$installed),"PGRP Setup","OK","Information") | Out-Null
             }
             $form.Close()
         } catch {
-            $status.Text="Installation failed. See PGRP_v048_Setup.log in TEMP."
+            $status.Text="Installation failed. See PGRP_v049_Setup.log in TEMP."
             Log ("Install UI failure: " + $_.Exception.ToString())
             if ($UiActionSmoke) {
-                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v048_UI_Action_Smoke.error"), $_.Exception.ToString())
+                [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v049_UI_Action_Smoke.error"), $_.Exception.ToString())
                 $form.Close()
             } else {
                 [System.Windows.Forms.MessageBox]::Show($form,($_.Exception.Message+[Environment]::NewLine+"Log: "+$LogPath),"PGRP Setup error","OK","Error") | Out-Null
@@ -252,8 +252,8 @@ try {
     })
     $form.Controls.Add($install)
     if ($UiActionSmoke) {
-        $successPath=Join-Path $env:TEMP "PGRP_v048_UI_Action_Smoke.ok"
-        $errorPath=Join-Path $env:TEMP "PGRP_v048_UI_Action_Smoke.error"
+        $successPath=Join-Path $env:TEMP "PGRP_v049_UI_Action_Smoke.ok"
+        $errorPath=Join-Path $env:TEMP "PGRP_v049_UI_Action_Smoke.error"
         Remove-Item -LiteralPath $successPath,$errorPath -Force -ErrorAction SilentlyContinue
         $form.Add_Shown({
             $script:actionSmokeTimer=New-Object System.Windows.Forms.Timer
@@ -272,7 +272,7 @@ try {
                     $install.PerformClick()
                     Log "GUI-action timer: after Install.PerformClick"
                 } catch {
-                    [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v048_UI_Action_Smoke.error"), $_.Exception.ToString())
+                    [IO.File]::WriteAllText((Join-Path $env:TEMP "PGRP_v049_UI_Action_Smoke.error"), $_.Exception.ToString())
                     $form.Close()
                 }
             })
@@ -280,7 +280,7 @@ try {
         })
     }
     if ($UiSmoke) {
-        $probePath = Join-Path $env:TEMP "PGRP_v048_UI_Smoke.ok"
+        $probePath = Join-Path $env:TEMP "PGRP_v049_UI_Smoke.ok"
         Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
         $form.Add_Shown({
             $visible=$form.Visible
