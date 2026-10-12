@@ -80,6 +80,35 @@ $earlyGameExitCheck = @'
 Replace-Exact 'launcher/inject.h' '            inject_dll_load_library_w(pid, dllPath.wstring());' $earlyGameExitCheck
 
 
+
+# The server sends SA-MP {RRGGBB} markup in dialog titles and button labels.
+# Those strings are identifiers/widgets in ImGui, not formatted message text.
+# Strip markup for labels; preserve colored dialog body handled separately.
+$stripColorHelper = @'
+        std::string StripPgrpDialogColorTags(const char* source)
+        {
+            if (!source) return {};
+            std::string clean;
+            for (const char* p = source; *p;)
+            {
+                std::uint32_t rgba = 0;
+                int tagLen = 0;
+                if (*p == '{' && opensamp::gui::color::ParseHexTag(p, rgba, tagLen))
+                {
+                    p += tagLen;
+                    continue;
+                }
+                clean.push_back(*p++);
+            }
+            return clean;
+        }
+
+'@
+Replace-Exact 'native/gui/dialog.cpp' '        constexpr float kDialogWidth = 480.0f;' ('        constexpr float kDialogWidth = 480.0f;'+[Environment]::NewLine+[Environment]::NewLine+$stripColorHelper)
+Replace-Exact 'native/gui/dialog.cpp' 'm_title = title ? title : "";' 'm_title = StripPgrpDialogColorTags(title);'
+Replace-Exact 'native/gui/dialog.cpp' 'm_btn1  = btn1  ? btn1  : "";' 'm_btn1  = StripPgrpDialogColorTags(btn1);'
+Replace-Exact 'native/gui/dialog.cpp' 'm_btn2  = btn2  ? btn2  : "";' 'm_btn2  = StripPgrpDialogColorTags(btn2);'
+
 # PGRP client presentation fixes v0.4.3.
 # Do not stretch GTA's HWND to the desktop until its native D3D backbuffer
 # has been recreated at the same size. This was the source of the top-left
