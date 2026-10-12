@@ -79,5 +79,76 @@ $earlyGameExitCheck = @'
 '@
 Replace-Exact 'launcher/inject.h' '            inject_dll_load_library_w(pid, dllPath.wstring());' $earlyGameExitCheck
 
+
+# PGRP client presentation fixes v0.4.3.
+# Do not stretch GTA's HWND to the desktop until its native D3D backbuffer
+# has been recreated at the same size. This was the source of the top-left
+# game viewport, black rest of monitor and persistent UI / mouse drawings.
+Replace-Exact 'native/d3d.cpp' 'static bool g_borderlessEnabled = true;' 'static bool g_borderlessEnabled = false;  // PGRP: preserve GTA-native fullscreen/window dimensions'
+Replace-Exact 'native/d3d.cpp' 'static bool g_forceResEnabled = true;' 'static bool g_forceResEnabled = false;  // PGRP: do not force an unsynchronised D3D resize'
+
+# Render ONLY one cursor: prefer the Win32 hardware cursor while a dialog/chat
+# is active. Old implementation drew an additional ImGui software cursor
+# onto an undersized, uncleared backbuffer, creating ghost/trail pointers.
+$cursorHandling = @'
+    const bool modal_active =
+        g_chat.IsActive() || opensamp::gui::Dialog::Get().IsActive();
+    ImGui::GetIO().MouseDrawCursor = false;
+
+    static bool wasModal = false;
+    static RECT previousClip{};
+    static bool havePreviousClip = false;
+    static int showCursorCalls = 0;
+
+    if (modal_active && !wasModal)
+    {
+        havePreviousClip = (GetClipCursor(&previousClip) != FALSE);
+        ClipCursor(nullptr);
+        // Keep a balanced count: avoid leaving a visible OS cursor behind
+        // after the player closes the dialog or the chat prompt.
+        for (int i = 0; i < 16; ++i)
+        {
+            ++showCursorCalls;
+            if (ShowCursor(TRUE) >= 0) break;
+        }
+        SetCursor(LoadCursorW(nullptr, IDC_ARROW));
+    }
+    else if (!modal_active && wasModal)
+    {
+        if (havePreviousClip) ClipCursor(&previousClip);
+        while (showCursorCalls > 0)
+        {
+            ShowCursor(FALSE);
+            --showCursorCalls;
+        }
+    }
+
+    if (modal_active)
+        SetCursor(LoadCursorW(nullptr, IDC_ARROW));
+    wasModal = modal_active;
+'@
+$oldCursorHandling = @'
+    const bool modal_active =
+        g_chat.IsActive() || opensamp::gui::Dialog::Get().IsActive();
+    ImGui::GetIO().MouseDrawCursor = modal_active;
+'@
+Replace-Exact 'native/gui/imgui_manager.cpp' $oldCursorHandling $cursorHandling
+
+# Prevent GTA's WM_SETCURSOR from hiding/resetting the pointer while
+# interacting with the modal. One Win32 cursor is used, not an ImGui sprite.
+$cursorWndProc = @'
+        if (dialog_active && msg == WM_SETCURSOR && LOWORD(lParam) == HTCLIENT)
+        {
+            SetCursor(LoadCursorW(nullptr, IDC_ARROW));
+            return TRUE;
+        }
+'@
+Replace-Exact 'native/gui/imgui_manager.cpp' '        const bool imgui_handled = ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);' ($cursorWndProc+[Environment]::NewLine+'        const bool imgui_handled = ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);')
+
+# The ImGui dialog ID is stable and buttons have distinct hidden IDs (above).
+# Also ensure submit's input text is not lost: ImGui InputText is already bound
+# to its unique ##dlg_input slot and server responses use the same dialog id.
+Write-Host 'PGRP client presentation fixes v0.4.3 applied'
+
 $unique = @($changed | Sort-Object -Unique)
 Write-Host "Applied fixes to $($unique.Count) unique source files."
