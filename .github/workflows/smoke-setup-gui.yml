@@ -1,0 +1,54 @@
+name: Smoke-test standalone PGRP Setup GUI actions only
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - setup-v044/install.ps1
+      - .github/workflows/smoke-setup-gui.yml
+
+permissions:
+  contents: read
+
+jobs:
+  winforms:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Browse plus Install button using simulated game/payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'PGRP_GUI_Quick_Test'
+          $game=Join-Path $root 'Game'
+          $payload=Join-Path $root 'Payload'
+          $dest=Join-Path $root 'Fresh_Install'
+          New-Item -ItemType Directory -Force -Path (Join-Path $game 'models'),(Join-Path $game 'data'),$payload | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $game 'gta_sa.exe'),[byte[]](1,2,3,4,5))
+          [IO.File]::WriteAllBytes((Join-Path $payload 'opensamp.exe'),[byte[]](6,7,8))
+          [IO.File]::WriteAllBytes((Join-Path $payload 'Client.Native.dll'),[byte[]](9,10,11))
+          $expected=Join-Path $game 'gta_sa.exe'
+          $success=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.ok'
+          $fail=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.error'
+          $log=Join-Path $env:TEMP 'PGRP_v044_Setup.log'
+          Remove-Item $success,$fail,$log -Force -ErrorAction SilentlyContinue
+          $process = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',(('"'+(Resolve-Path '.\setup-v044\install.ps1').Path+'"')),'-AssetsDir',('"'+$payload+'"'),'-SourceGTA',('"'+$expected+'"'),'-InstallRoot',('"'+$dest+'"'),'-UiActionSmoke') -PassThru
+          $complete=$process.WaitForExit(20000)
+          Write-Host ('Exited within 20 seconds? '+$complete)
+          if(-not $complete) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host ('Process exit code '+$process.ExitCode)
+          }
+          Write-Host '=== INTERACTIVE SETUP LOG ==='
+          Get-Content $log -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+          Write-Host '=== GUI TEST STATUS ==='
+          Get-Content $success,$fail -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+          if(-not $complete -or $process.ExitCode -ne 0 -or -not (Test-Path $success)) {
+            throw 'WinForms Browse/Install button click smoke failed'
+          }
+          if(-not (Test-Path (Join-Path $dest 'PGRP_Installed_Version.txt'))) {
+            throw 'GUI Install button failed to install target files'
+          }
+          Write-Host 'PASS: Both WinForms button handlers and real file installation succeeded.'
