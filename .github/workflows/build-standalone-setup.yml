@@ -1,12 +1,13 @@
-name: Build standalone PGRP v0.4.4 Windows setup
+name: Build standalone PGRP v0.4.5 Windows setup
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - .github/workflows/build-standalone-setup.yml
-      - setup-v044/**
+      - setup-v045/**
       - tools/apply-client-fixes.ps1
+      - tools/apply-dialog-close-fix.ps1
 
 permissions:
   contents: read
@@ -42,69 +43,71 @@ jobs:
           if (-not $msbuild) { throw 'MSBuild not found' }
           & $msbuild 'upstream\opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
           if ($LASTEXITCODE -ne 0) { throw 'Original client build failed' }
-          New-Item -ItemType Directory -Force -Path 'setup-v044\payload' | Out-Null
-          Copy-Item 'upstream\bin\opensamp.exe' 'setup-v044\payload\opensamp.exe'
-          Get-FileHash 'setup-v044\payload\opensamp.exe' -Algorithm SHA256 | Format-List
+          New-Item -ItemType Directory -Force -Path 'setup-v045\payload' | Out-Null
+          Copy-Item 'upstream\bin\opensamp.exe' 'setup-v045\payload\opensamp.exe'
+          Get-FileHash 'setup-v045\payload\opensamp.exe' -Algorithm SHA256 | Format-List
 
       - name: Compile fixed Win32 UI client
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & .\tools\apply-client-fixes.ps1 -Root upstream
+          & .\tools\apply-dialog-close-fix.ps1 -Root upstream
+          if (-not $?) { throw 'Dialog close handling patch failed' }
           if (-not $?) { throw 'GUI source patch failed' }
           $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
           & $msbuild 'upstream\opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
           if ($LASTEXITCODE -ne 0) { throw 'Fixed DLL build failed' }
-          Copy-Item 'upstream\bin\Client.Native.dll' 'setup-v044\payload\Client.Native.dll'
-          if ((Get-Item 'setup-v044\payload\Client.Native.dll').Length -lt 500000) { throw 'DLL output invalid' }
+          Copy-Item 'upstream\bin\Client.Native.dll' 'setup-v045\payload\Client.Native.dll'
+          if ((Get-Item 'setup-v045\payload\Client.Native.dll').Length -lt 500000) { throw 'DLL output invalid' }
 
       - name: Test fresh setup installation and hashes on Windows
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $test=Join-Path $env:RUNNER_TEMP 'pgrp-v044-installer-ci'
+          $test=Join-Path $env:RUNNER_TEMP 'pgrp-v045-installer-ci'
           $original=Join-Path $test 'OriginalGTA'
-          $dest=Join-Path $test 'PGRP_Alpha_v0.4.4'
+          $dest=Join-Path $test 'PGRP_Alpha_v0.4.5'
           New-Item -ItemType Directory -Force -Path (Join-Path $original 'models'), (Join-Path $original 'data') | Out-Null
           [IO.File]::WriteAllBytes((Join-Path $original 'gta_sa.exe'),[byte[]](1,2,3,4,5))
           [IO.File]::WriteAllText((Join-Path $original 'models\gta3.img'),'synthetic GTA test files')
           $sourceHash=(Get-FileHash (Join-Path $original 'gta_sa.exe') -Algorithm SHA256).Hash
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\setup-v044\install.ps1' -AssetsDir 'setup-v044\payload' -SourceGTA (Join-Path $original 'gta_sa.exe') -InstallRoot $dest -Silent
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\setup-v045\install.ps1' -AssetsDir 'setup-v045\payload' -SourceGTA (Join-Path $original 'gta_sa.exe') -InstallRoot $dest -Silent
           if ($LASTEXITCODE -ne 0) { throw 'Fresh setup Windows install failed' }
           foreach($name in @('opensamp.exe','Client.Native.dll')) {
-            $want=(Get-FileHash (Join-Path 'setup-v044\payload' $name) -Algorithm SHA256).Hash
+            $want=(Get-FileHash (Join-Path 'setup-v045\payload' $name) -Algorithm SHA256).Hash
             $got=(Get-FileHash (Join-Path $dest "GTA_San_Andreas\$name") -Algorithm SHA256).Hash
             if ($want -ne $got) { throw ('Install hash mismatch '+$name) }
           }
           if ((Get-FileHash (Join-Path $original 'gta_sa.exe') -Algorithm SHA256).Hash -ne $sourceHash) { throw 'Installer changed source GTA' }
           if (-not (Test-Path (Join-Path $dest 'PGRP_Installed_Version.txt'))) { throw 'Version manifest missing' }
-          Write-Host 'PASS: Fresh isolated v0.4.4 installation, hashes and source preservation'
+          Write-Host 'PASS: Fresh isolated v0.4.5 installation, hashes and source preservation'
 
       - name: Compile standalone 64-bit Windows Setup EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Push-Location setup-v044
+          Push-Location setup-v045
           try {
             $env:GOOS='windows'
             $env:GOARCH='amd64'
             $env:CGO_ENABLED='0'
-            go build -trimpath -ldflags '-H windowsgui -s -w' -o ..\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe .
+            go build -trimpath -ldflags '-H windowsgui -s -w' -o ..\PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe .
             if ($LASTEXITCODE -ne 0) { throw 'Go EXE build failed' }
           } finally { Pop-Location }
-          if(-not (Test-Path 'PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe')) {throw 'Missing Setup EXE'}
-          & .\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe --verify
+          if(-not (Test-Path 'PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe')) {throw 'Missing Setup EXE'}
+          & .\PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe --verify
           if ($LASTEXITCODE -ne 0) { throw 'Embedded resource verification failed' }
-          Get-FileHash 'PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash 'PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe' -Algorithm SHA256 | Format-List
 
       - name: Exercise the actual Setup.exe WinForms GUI startup
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $marker = Join-Path $env:TEMP 'PGRP_v044_UI_Smoke.ok'
+          $marker = Join-Path $env:TEMP 'PGRP_v045_UI_Smoke.ok'
           Remove-Item $marker -Force -ErrorAction SilentlyContinue
-          $exe = (Resolve-Path '.\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe').Path
+          $exe = (Resolve-Path '.\PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe').Path
           $setup = Start-Process -FilePath $exe -ArgumentList @('-UiSmoke') -PassThru
           if (-not $setup.WaitForExit(45000)) {
             Stop-Process -Id $setup.Id -Force -ErrorAction SilentlyContinue
@@ -113,9 +116,9 @@ jobs:
           if ($setup.ExitCode -ne 0) { throw ('GUI smoke failed. Exit code: ' + $setup.ExitCode) }
           if (-not (Test-Path $marker -PathType Leaf)) {
             Write-Host 'Installer boot log:'
-            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup_Boot.log') -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v045_Setup_Boot.log') -ErrorAction SilentlyContinue
             Write-Host 'Installer PowerShell log:'
-            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup.log') -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v045_Setup.log') -ErrorAction SilentlyContinue
             throw 'WinForms GUI did not report its visible Shown event'
           }
           Get-Content $marker
@@ -127,15 +130,15 @@ jobs:
           $ErrorActionPreference='Stop'
           $tempRoot=Join-Path $env:RUNNER_TEMP 'pgrp-real-gui-click-smoke'
           $source=Join-Path $tempRoot 'GTA_Original'
-          $target=Join-Path $tempRoot 'New_PGRP_v044'
+          $target=Join-Path $tempRoot 'New_PGRP_v045'
           New-Item -ItemType Directory -Force -Path (Join-Path $source 'models'),(Join-Path $source 'data') | Out-Null
           [IO.File]::WriteAllBytes((Join-Path $source 'gta_sa.exe'),[byte[]](1,2,3,4,5))
           [IO.File]::WriteAllText((Join-Path $source 'models\gta3.img'),'fake test-only game assets')
           $selected=Join-Path $source 'gta_sa.exe'
-          $ok=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.ok'
-          $failure=Join-Path $env:TEMP 'PGRP_v044_UI_Action_Smoke.error'
+          $ok=Join-Path $env:TEMP 'PGRP_v045_UI_Action_Smoke.ok'
+          $failure=Join-Path $env:TEMP 'PGRP_v045_UI_Action_Smoke.error'
           Remove-Item -LiteralPath $ok,$failure -Force -ErrorAction SilentlyContinue
-          $exe=(Resolve-Path '.\PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe').Path
+          $exe=(Resolve-Path '.\PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe').Path
           $proc=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"'+$selected+'"'),'-InstallRoot',('"'+$target+'"')) -PassThru
           if (-not $proc.WaitForExit(65000)) {
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
@@ -143,15 +146,15 @@ jobs:
           }
           if ($proc.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $ok)) {
             Get-Content $failure -ErrorAction SilentlyContinue
-            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup_Boot.log') -Tail 20 -ErrorAction SilentlyContinue
-            Get-Content (Join-Path $env:TEMP 'PGRP_v044_Setup.log') -Tail 35 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v045_Setup_Boot.log') -Tail 20 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v045_Setup.log') -Tail 35 -ErrorAction SilentlyContinue
             throw ('Actual GUI click smoke failed with exit code '+$proc.ExitCode)
           }
           if (-not (Test-Path -LiteralPath (Join-Path $target 'PGRP_Installed_Version.txt'))) {
             throw 'GUI click run did not install the expected version manifest'
           }
           foreach($bin in @('opensamp.exe','Client.Native.dll')) {
-            $a=(Get-FileHash (Join-Path 'setup-v044\payload' $bin) -Algorithm SHA256).Hash
+            $a=(Get-FileHash (Join-Path 'setup-v045\payload' $bin) -Algorithm SHA256).Hash
             $b=(Get-FileHash (Join-Path $target ('GTA_San_Andreas\'+$bin)) -Algorithm SHA256).Hash
             if($a -ne $b) { throw ('GUI click installed incorrect '+$bin) }
           }
@@ -161,30 +164,32 @@ jobs:
       - name: Package executable and corresponding source
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path 'PGRP_Setup_v0.4.4_Release' | Out-Null
-          Copy-Item 'PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe' 'PGRP_Setup_v0.4.4_Release\'
-          Copy-Item 'upstream\LICENSE' 'PGRP_Setup_v0.4.4_Release\LICENSE.txt'
-          Copy-Item 'upstream\THIRD-PARTY-NOTICES.md' 'PGRP_Setup_v0.4.4_Release\'
-          Copy-Item 'setup-v044\main.go' 'PGRP_Setup_v0.4.4_Release\setup-main.go'
-          Copy-Item 'setup-v044\install.ps1' 'PGRP_Setup_v0.4.4_Release\install.ps1'
-          Copy-Item 'tools\apply-client-fixes.ps1' 'PGRP_Setup_v0.4.4_Release\'
-          git -C upstream archive --format=zip --output=../PGRP_Setup_v0.4.4_Release/OpenSAMP_original_source.zip HEAD
+          New-Item -ItemType Directory -Force -Path 'PGRP_Setup_v0.4.5_Release' | Out-Null
+          Copy-Item 'PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe' 'PGRP_Setup_v0.4.5_Release\'
+          Copy-Item 'upstream\LICENSE' 'PGRP_Setup_v0.4.5_Release\LICENSE.txt'
+          Copy-Item 'upstream\THIRD-PARTY-NOTICES.md' 'PGRP_Setup_v0.4.5_Release\'
+          Copy-Item 'setup-v045\main.go' 'PGRP_Setup_v0.4.5_Release\setup-main.go'
+          Copy-Item 'setup-v045\install.ps1' 'PGRP_Setup_v0.4.5_Release\install.ps1'
+          Copy-Item 'tools\apply-client-fixes.ps1' 'PGRP_Setup_v0.4.5_Release\'
+          Copy-Item 'tools\apply-dialog-close-fix.ps1' 'PGRP_Setup_v0.4.5_Release\'
+          git -C upstream archive --format=zip --output=../PGRP_Setup_v0.4.5_Release/OpenSAMP_original_source.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
           @(
-            'Run PGRP_Alpha_v0.4.4_Setup_Windows_x64.exe.',
+            'Run PGRP_Alpha_v0.4.5_Setup_Windows_x64.exe.',
             'Select existing GTA San Andreas gta_sa.exe. No GTA assets are bundled.',
-            'Clean standalone install path: %LOCALAPPDATA%\PaladinGuard\PGRP_Alpha_v0.4.4\GTA_San_Andreas',
+            'Clean standalone install path: %LOCALAPPDATA%\PaladinGuard\PGRP_Alpha_v0.4.5\GTA_San_Andreas',
             'No need to install the original v0.4.2 Setup first.',
             'The older version and original game are not deleted.',
             'Known original OpenSAMP source revision: a05717eeab2de65d1def7e7725dc1985198400f7',
             'Fresh installation does not reset or repair a user account on the open.mp server.',
+            'Fix: SA-MP HidePlayerDialog reserved id 0xFFFF no longer creates an empty dialog.',
             'Full graphical operation with real GTA still needs testing on a user PC.',
-            'Log: %TEMP%\PGRP_v044_Setup.log'
-          ) | Set-Content 'PGRP_Setup_v0.4.4_Release\README.txt' -Encoding UTF8
+            'Log: %TEMP%\PGRP_v045_Setup.log'
+          ) | Set-Content 'PGRP_Setup_v0.4.5_Release\README.txt' -Encoding UTF8
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PGRP-Alpha-v0.4.4-Full-Windows-Setup
-          path: PGRP_Setup_v0.4.4_Release/
+          name: PGRP-Alpha-v0.4.5-Full-Windows-Setup
+          path: PGRP_Setup_v0.4.5_Release/
           if-no-files-found: error
           retention-days: 7
