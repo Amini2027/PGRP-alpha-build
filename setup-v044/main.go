@@ -62,16 +62,28 @@ func main() {
 		return
 	}
 
-	// STA is mandatory for the WinForms browse dialog.
-	args := []string{"-NoProfile","-NonInteractive","-STA","-ExecutionPolicy","Bypass","-File",
+	// IMPORTANT: HideWindow:true sets STARTF_USESHOWWINDOW/SW_HIDE. The
+	// first ShowWindow call in WinForms then inherits SW_HIDE from STARTUPINFO,
+	// so the installer runs invisibly. CREATE_NO_WINDOW hides only the
+	// *PowerShell console* without suppressing the WinForms GUI itself.
+	args := []string{"-NoProfile","-STA","-ExecutionPolicy","Bypass","-File",
 		filepath.Join(work,"install.ps1"),"-AssetsDir",assets}
 	if len(os.Args) > 1 {
 		args = append(args,os.Args[1:]...)
 	}
 	cmd := exec.Command("powershell.exe",args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	const createNoWindow = 0x08000000
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
+	trace, traceErr := os.OpenFile(filepath.Join(os.TempDir(), "PGRP_v044_Setup_Boot.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if traceErr == nil {
+		defer trace.Close()
+		fmt.Fprintln(trace, "Starting PowerShell WinForms installer (CREATE_NO_WINDOW; no SW_HIDE)")
+		cmd.Stdout = trace
+		cmd.Stderr = trace
+	}
 	if err = cmd.Run(); err != nil {
-		messageBox("PGRP Setup", "Installer finished with an error.\nSee %TEMP%\\PGRP_v044_Setup.log for details.\n\n"+err.Error(),0x10)
+		if trace != nil { fmt.Fprintln(trace, "PowerShell process error: "+err.Error()) }
+		messageBox("PGRP Setup", "Installer finished with an error.\nCheck %TEMP%\\PGRP_v044_Setup_Boot.log and PGRP_v044_Setup.log\n\n"+err.Error(),0x10)
 		os.Exit(1)
 	}
 }
