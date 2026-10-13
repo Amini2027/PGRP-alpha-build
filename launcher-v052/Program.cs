@@ -166,8 +166,8 @@ internal sealed class LauncherWindow : Form
     private static readonly Color Gold = Color.FromArgb(213, 170, 100);
     private static readonly Color White = Color.FromArgb(242, 241, 235);
     private readonly NetworkCanvas _network = new();
-    private readonly Timer _animation = new();
-    private readonly Timer _refresh = new();
+    private readonly System.Windows.Forms.Timer _animation = new();
+    private readonly System.Windows.Forms.Timer _refresh = new();
     private readonly Panel _home = new();
     private readonly Panel _news = new();
     private readonly Panel _settings = new();
