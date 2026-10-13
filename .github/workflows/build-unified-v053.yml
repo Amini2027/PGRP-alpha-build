@@ -81,7 +81,14 @@ jobs:
           if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft'){
             throw 'VC++ runtime is not signed by Microsoft'
           }
-          Get-FileHash $out -Algorithm SHA256 | Format-List
+          $sha=(Get-FileHash $out -Algorithm SHA256).Hash
+          $installerScript='setup-v053/install.ps1'
+          $script=[IO.File]::ReadAllText((Resolve-Path $installerScript).Path)
+          $token='__PGRP_MICROSOFT_VC_REDIST_SHA256__'
+          if(-not $script.Contains($token)){throw 'Missing runtime digest placeholder'}
+          [IO.File]::WriteAllText((Resolve-Path $installerScript).Path,
+            $script.Replace($token,$sha),[Text.UTF8Encoding]::new($false))
+          Write-Host ("Bundled signed Microsoft VC++ x86 SHA256="+$sha)
 
       - name: Compile ONE standalone Windows installer EXE (no .NET runtime needed)
         shell: pwsh
