@@ -108,6 +108,13 @@ function Install-Gta([string]$GtaFile) {
     }
     $previous=""
     if(Test-Path -LiteralPath $destRoot) {
+        # Never move an arbitrary user folder. Only an earlier PGRP install
+        # is eligible for a versioned rollback backup.
+        $contents=@(Get-ChildItem -LiteralPath $destRoot -Force -ErrorAction Stop)
+        $marker=Join-Path $destRoot "PGRP_Installed_Version.txt"
+        if($contents.Count -gt 0 -and -not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+            throw "Installation folder already contains unrelated files. Choose a new empty PGRP folder."
+        }
         $previous=$destRoot+".backup_"+(Get-Date -Format "yyyyMMdd_HHmmss")
         Move-Item -LiteralPath $destRoot -Destination $previous -ErrorAction Stop
         Log ("Previous v0.5.7 copy backed up to "+$previous)
@@ -265,7 +272,7 @@ try {
     $browseInstall.Add_Click({
         if($UiActionSmoke){$script:installPathBox.Text=$InstallRoot;return}
         $folder=New-Object System.Windows.Forms.FolderBrowserDialog
-        $folder.Description="Choose destination folder for both GTA and PGRPLauncher.exe"
+        $folder.Description="Choose parent folder; PaladinGuardRP subfolder will be created for GTA + launcher"
         if(Test-Path -LiteralPath $script:installPathBox.Text -PathType Container){
             $folder.SelectedPath=$script:installPathBox.Text
         }
@@ -278,7 +285,7 @@ try {
     $destInfo=New-Object System.Windows.Forms.Label
     $destInfo.Location=[System.Drawing.Point]::new(22,230)
     $destInfo.Size=[System.Drawing.Size]::new(694,47)
-    $destInfo.Text="Installed together: gta_sa.exe, PGRPLauncher.exe, opensamp.exe, models\, data\."
+    $destInfo.Text="Installed together: gta_sa.exe, PGRPLauncher.exe, opensamp.exe, models, data."
     $form.Controls.Add($destInfo)
     $note=New-Object System.Windows.Forms.Label
     $note.Location=[System.Drawing.Point]::new(22,284)
