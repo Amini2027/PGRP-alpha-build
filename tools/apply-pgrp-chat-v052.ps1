@@ -38,7 +38,7 @@ Replace-One 'native/gui/chat.cpp' @'
 Replace-One 'native/gui/chat.cpp' @'
     const int renderCount = IsModal() ? static_cast<int>(lines.size()) : linesToShow;
 '@ @'
-    const int renderCount = IsModal() ? static_cast<int>(lines.size()) : std::min(linesToShow, 5);
+    const int renderCount = IsModal() ? static_cast<int>(lines.size()) : (linesToShow < 5 ? linesToShow : 5);
 '@ 'max five live chat entries'
 Replace-One 'native/gui/chat.cpp' @'
         DrawLineColored(lines[i].textUtf8, 1.0f);
