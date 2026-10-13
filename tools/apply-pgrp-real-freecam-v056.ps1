@@ -30,6 +30,7 @@ namespace pgrpfc {
         bool active=false;
         float x=0,y=0,z=0,yaw=0,pitch=0;
         DWORD lastTick=0,lastReport=0,lastStream=0;
+        float streamX=0,streamY=0;
         POINT center{};
     };
     static State st{};
@@ -57,6 +58,8 @@ namespace pgrpfc {
         st.x=x;st.y=y;st.z=z;
         st.yaw=0.0f;st.pitch=0.0f;
         st.lastTick=GetTickCount();
+        st.streamX=x;st.streamY=y;
+        st.lastStream=st.lastTick;
         st.active=true;
         Log("[PGRP FC v056] native camera activated at %.3f %.3f %.3f",x,y,z);
         Report();
@@ -127,9 +130,16 @@ namespace pgrpfc {
         if(now-st.lastReport >= 300) Report();
         // Stream surrounding map only after appreciable travel and rate-limit
         // the expensive native streaming refresh to help low-end PCs.
-        if(now-st.lastStream>2500){
+        if(now-st.lastStream>2300){
+            const float dx=st.x-st.streamX,dy=st.y-st.streamY;
+            if(dx*dx+dy*dy>110.f*110.f){
+                // Refresh distant collision/terrain without creating an
+                // object per node. Rate-limited because the SCM streamer
+                // can hitch on PCs with slow storage.
+                gta::sa::RefreshStreamingAt(st.x,st.y);
+                st.streamX=st.x;st.streamY=st.y;
+            }
             st.lastStream=now;
-            // GTA's ordinary streaming ticks handle near-field movement.
         }
     }
 }
