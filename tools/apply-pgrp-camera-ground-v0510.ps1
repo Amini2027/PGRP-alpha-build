@@ -8,6 +8,12 @@ function Patch([string]$file,[string]$before,[string]$after,[string]$tag){
  [IO.File]::WriteAllText($p,$s.Replace($before,$after),[Text.UTF8Encoding]::new($false))
  Write-Host ("PGRP PATCH OK "+$tag)
 }
+Patch 'native/sampraknet_bridge.cpp' @'
+ // -------- Native PGRP FreeCam v0.5.6 --------
+'@ @'
+static int try_stream_load_scene(float x,float y,float z);
+// -------- Native PGRP FreeCam v0.5.6 --------
+'@ 'forward declaration of exception-safe world stream loader'
 # GTA SA CCamera::TakeControlNoEntity changes *mode*; it does not update the
 # FIXED camera source. The missing US 1.0 method is 0x50BEC0.
 Patch 'native/game/game.h' @'
