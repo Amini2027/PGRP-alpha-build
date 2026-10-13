@@ -8,7 +8,7 @@ on:
       - 'tools/apply-pgrp-chat-v052.ps1'
       - 'tools/apply-pgrp-ingame-v054.ps1'
       - 'tools/apply-pgrp-freecam-compat-v055.ps1'
-      - 'tools/apply-pgrp-real-freecam-v057.ps1'
+      - 'tools/apply-pgrp-real-freecam-v056.ps1'
   workflow_dispatch:
 
 permissions:
@@ -94,7 +94,7 @@ jobs:
           & ./tools/apply-pgrp-chat-v052.ps1 -Root upstream
           & ./tools/apply-pgrp-ingame-v054.ps1 -Root upstream
           & ./tools/apply-pgrp-freecam-compat-v055.ps1 -Root upstream
-          & ./tools/apply-pgrp-real-freecam-v057.ps1 -Root upstream
+          & ./tools/apply-pgrp-real-freecam-v056.ps1 -Root upstream
           if(-not $?) {throw 'Client patch failed'}
           $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
