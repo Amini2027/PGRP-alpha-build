@@ -9,7 +9,7 @@ function Patch([string]$file,[string]$before,[string]$after,[string]$tag){
  Write-Host ("PGRP PATCH OK "+$tag)
 }
 Patch 'native/sampraknet_bridge.cpp' @'
- // -------- Native PGRP FreeCam v0.5.6 --------
+// -------- Native PGRP FreeCam v0.5.6 --------
 '@ @'
 static int try_stream_load_scene(float x,float y,float z);
 // -------- Native PGRP FreeCam v0.5.6 --------
