@@ -79,8 +79,8 @@ Patch 'native/sampraknet_bridge.cpp' @'
     {
         if(!g_pgrpTabVisible || !IsPgrpAdminTabAllowed()) return;
         const ImGuiIO& io=ImGui::GetIO();
-        const float w=std::min(600.f,std::max(320.f,io.DisplaySize.x-40.f));
-        const float h=std::min(530.f,std::max(200.f,io.DisplaySize.y-80.f));
+        const float w=(std::min)(600.f,(std::max)(320.f,io.DisplaySize.x-40.f));
+        const float h=(std::min)(530.f,(std::max)(200.f,io.DisplaySize.y-80.f));
         ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x-w)*.5f,55.f),ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(w,h),ImGuiCond_Always);
         ImGui::PushStyleColor(ImGuiCol_WindowBg,IM_COL32(13,19,30,232));
