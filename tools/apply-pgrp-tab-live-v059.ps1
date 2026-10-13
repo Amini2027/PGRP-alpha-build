@@ -21,6 +21,7 @@ Patch 'native/sampraknet_bridge.h' @'
 '@ @'
     bool IsPgrpAdminTabAllowed();
     void PgrpTabToggle();
+    bool PgrpTabIsOpen();
     void PgrpTabClear();
     void PgrpTabAdd(int id,int ping,const char* name);
     void PgrpTabDraw();
@@ -57,6 +58,10 @@ Patch 'native/sampraknet_bridge.cpp' @'
 Patch 'native/sampraknet_bridge.cpp' @'
     bool IsPgrpGameplayReady() {
 '@ @'
+    bool PgrpTabIsOpen()
+    {
+        return g_pgrpTabVisible && IsPgrpAdminTabAllowed();
+    }
     void PgrpTabToggle()
     {
         if(!IsPgrpAdminTabAllowed()){g_pgrpTabVisible=false;return;}
@@ -120,6 +125,22 @@ Patch 'native/gui/imgui_manager.cpp' @'
 '@ @'
                 opensamp::bridge::PgrpTabToggle();
 '@ 'TAB toggles local overlay (no repeated dialog)'
+Patch 'native/gui/imgui_manager.cpp' @'
+        if (msg == WM_KEYDOWN)
+        {
+            // Toggle chat with T
+'@ @'
+        // ESC closes a native TAB list without reopening any server dialog.
+        if(msg==WM_KEYDOWN && wParam==VK_ESCAPE && !g_chat.IsActive()
+           && !dialog_active && opensamp::bridge::PgrpTabIsOpen())
+        {
+            opensamp::bridge::PgrpTabToggle();
+            return 0;
+        }
+        if (msg == WM_KEYDOWN)
+        {
+            // Toggle chat with T
+'@ 'ESC support for native TAB close'
 Patch 'native/gui/imgui_manager.cpp' @'
     g_chat.Draw();
     opensamp::gui::Dialog::Get().Draw();
