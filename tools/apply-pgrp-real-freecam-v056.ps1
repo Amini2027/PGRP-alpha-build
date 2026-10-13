@@ -136,22 +136,19 @@ namespace pgrpfc {
 void ClientMessage(RPCParameters* rpcParams)
 '@ 'add client-side free-camera renderer/physics'
 Patch 'native/sampraknet_bridge.cpp' @'
-    // Server bytes are CP1251. Preserve {RRGGBB} color tags verbatim (ASCII);
-    // convert the rest to UTF-8 for our chat.
-    const auto utf8 = opensamp::util::cp1251_to_utf8({szMsg, dwStrLen});
-    Log("%s", utf8.c_str());
+    bsData.Read(szMsg, dwStrLen);
+    szMsg[dwStrLen] = 0;
 '@ @'
-    // Server-authorized start packet. Do not leak the protocol into player chat.
-    // Mode can only be enabled by a message from the configured PGRP endpoint.
-    float x=0,y=0,z=0;
-    if(g_pgrpEndpoint && std::sscanf(szMsg,"PGRP_FC_BEGIN %f %f %f",&x,&y,&z)==3){
-        pgrpfc::Begin(x,y,z);
+    bsData.Read(szMsg, dwStrLen);
+    szMsg[dwStrLen] = 0;
+    // This private control message comes from the authenticated SA-MP server,
+    // not a chat line. Never show the packet to ordinary players.
+    float fcX=0,fcY=0,fcZ=0;
+    if(g_pgrpEndpoint &&
+       std::sscanf(szMsg,"PGRP_FC_BEGIN %f %f %f",&fcX,&fcY,&fcZ)==3) {
+        pgrpfc::Begin(fcX,fcY,fcZ);
         return;
     }
-    // Server bytes are CP1251. Preserve {RRGGBB} color tags verbatim (ASCII);
-    // convert the rest to UTF-8 for our chat.
-    const auto utf8 = opensamp::util::cp1251_to_utf8({szMsg, dwStrLen});
-    Log("%s", utf8.c_str());
 '@ 'authorize freecam from PGRP server packet'
 Patch 'native/sampraknet_bridge.cpp' @'
         UpdateNetwork(pRakClient);
