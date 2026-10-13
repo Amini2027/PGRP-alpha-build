@@ -131,9 +131,12 @@ jobs:
           Remove-Item -LiteralPath $marker,$smokeError -Force -ErrorAction SilentlyContinue
           $exe=(Resolve-Path './PGRP_v0.5.3_All_in_One_Windows_Setup.exe').Path
           $p=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"' + (Join-Path $src 'gta_sa.exe') + '"'),'-InstallRoot',('"'+$dest+'"')) -PassThru
-          if(-not $p.WaitForExit(120000)){
+          if(-not $p.WaitForExit(65000)){
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-            throw 'Real installer click test timed out'
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v053_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v053_Setup_Boot.log') -Tail 30 -ErrorAction SilentlyContinue
+            throw 'Real installer click test timed out (65 sec)'
           }
           if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
             Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
