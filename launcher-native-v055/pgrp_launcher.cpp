@@ -214,8 +214,11 @@ struct App {
  }
  void graph(D2D1_RECT_F r,bool hero){
   // At most 44x44 cheap distance checks/frame, no particles or per-frame heap allocations.
-  auto c=hero?rgba(227,179,95,.37f):rgba(65,168,174,.16f);
-  auto d=hero?rgba(244,193,119,.82f):rgba(89,191,196,.36f);
+  // Four restrained moving colors: gold / blue / red / white.
+  // No textures, WebView, particles or allocation in this paint path.
+  const D2D1_COLOR_F colors[]={
+    rgba(233,182,94,hero?.58f:.34f), rgba(61,160,242,hero?.59f:.32f),
+    rgba(217,66,78,hero?.55f:.30f), rgba(239,244,255,hero?.59f:.29f)};
   for(size_t i=0;i<nodes.size();++i){
    float x=r.left+nodes[i].x*(r.right-r.left);
    float y=r.top+nodes[i].y*(r.bottom-r.top);
@@ -224,15 +227,17 @@ struct App {
     float xx=r.left+nodes[j].x*(r.right-r.left);
     float yy=r.top+nodes[j].y*(r.bottom-r.top);
     float dx=x-xx,dy=y-yy;
-    if(dx*dx+dy*dy<9500.f){line(x,y,xx,yy,c);++links;}
+    if(dx*dx+dy*dy<15000.f){line(x,y,xx,yy,colors[(i+j)%4],hero?1.15f:.7f);++links;}
    }
-   circle(x,y,hero?2.2f:1.6f,d);
+   auto dot=colors[i%4];dot.a=hero?.93f:.73f;
+   circle(x,y,hero?2.65f:1.9f,dot);
   }
  }
  void header(){
   fill(box(0,0,W,H),rgba(14,19,27));
   graph(box(NAV+6,TOP,W-NAV-12,H-TOP),false);
-  fill(box(0,0,NAV,H),rgba(15,21,30,.97f));
+  fill(box(0,0,NAV,H),rgba(15,21,30,.95f));
+  graph(box(3,TOP+2,NAV-6,H-TOP-7),false);
   fill(box(0,0,W,TOP),rgba(13,19,28,.97f));
   fill(box(0,0,W,3),rgba(228,182,102));
   txt(L"PALADIN GUARD",box(28,20,320,39),latin.Get(),rgba(234,182,94));
@@ -260,12 +265,12 @@ struct App {
   float heroH=std::min(322.f,std::max(270.f,H*.44f));
   auto hero=box(x,y,aw,heroH);
   fill(hero,rgba(23,31,42,.98f),18);stroke(hero,rgba(128,105,65,.6f),18);
-  float left=std::min(600.f,aw*.56f);
+  float left=std::min(785.f,aw*.61f);
   auto gr=box(x+left+6,y+13,aw-left-23,heroH-26);
   graph(gr,true);
   line(x+left,y+25,x+left,y+heroH-25,rgba(236,189,115,.45f));
   txt(L"PALADIN GUARD  /  ROLEPLAY",box(x+35,y+23,left-45,30),englishTiny.Get(),rgba(229,182,99));
-  txt(L"به قلمرو پالادین خوش آمدی",box(x+28,y+80,left-28,76),persianTitle.Get(),rgba(246,241,233));
+  txt(L"به قلمرو پالادین خوش آمدی",box(x+26,y+81,left-38,74),persianLarge.Get(),rgba(246,241,233));
   txt(L"ماجراجویی خودت را در دنیایی اختصاصی آغاز کن",box(x+35,y+156,left-55,42),persian.Get(),rgba(171,193,204));
   action(Action::Play,L"▶  ورود به سرور",box(x+32,y+heroH-82,std::max(185.f,left*.48f),49),true);
   action(Action::Settings,L"تنظیمات بازی",box(x+47+std::max(185.f,left*.48f),y+heroH-82,
@@ -276,25 +281,49 @@ struct App {
   for(int i=0;i<3;++i){
    float xx=x+i*(cw+15);
    auto c=box(xx,below,cw,111);
-   fill(c,rgba(26,34,45,.97f),13);stroke(c,rgba(61,80,96,.6f),13);
+   fill(c,rgba(26,34,45,.95f),13);stroke(c,rgba(61,80,96,.6f),13);
+   graph(box(xx+4,below+4,cw-8,103),false);
    txt(labels[i],box(xx+20,below+12,cw-40,32),persian.Get(),rgba(169,190,198));
    txt(vals[i],box(xx+20,below+49,cw-40,40),persianLarge.Get(),i?rgba(241,242,237):rgba(233,181,101));
   }
   float oy=below+128;
   if(H-oy<100)return;
   auto area=box(x,oy,aw,H-oy-22);
-  fill(area,rgba(24,32,43,.97f),14);stroke(area,rgba(66,82,96,.6f),14);
-  txt(L"نسخه کلاینت",box(x+22,oy+14,aw*.48f,32),persian.Get(),rgba(234,181,98));
-  txt(valid(gameExe)?L"PGRP 0.5.5 • Native launcher":L"مسیر GTA هنوز تنظیم نشده است",
-     box(x+23,oy+53,aw*.55f,33),persian.Get(),rgba(235,238,240));
-  txt(L"46.38.138.33:7777  /  SA-MP",box(x+22,oy+92,aw*.60f,30),englishTiny.Get(),rgba(159,182,195));
-  action(Action::Refresh,L"↻  تازه‌سازی وضعیت",box(x+aw-222,oy+38,195,48));
+  // Bottom half: real useful dashboard modules, not an empty rectangle.
+  const float gap=14.f, cell=(aw-gap)/2.f, rowH=std::max(105.f,(H-oy-37.f)/2.f);
+  const wchar_t* headings[]={L"نسخه و سلامت کلاینت",L"اتصال آنلاین",L"آخرین تغییرات",L"عملیات سریع"};
+  for(int i=0;i<4;++i){
+    float cx=x+(i%2)*(cell+gap),cy=oy+(i/2)*(rowH+gap);
+    auto r=box(cx,cy,cell,rowH);
+    fill(r,rgba(24,33,44,.95f),13);stroke(r,rgba(68,88,107,.64f),13);
+    graph(box(cx+4,cy+4,cell-8,rowH-8),false);
+    txt(headings[i],box(cx+22,cy+10,cell-44,34),persian.Get(),rgba(237,186,105));
+    if(i==0){
+      txt(valid(gameExe)?L"PGRP Native v0.5.6":L"مسیر فایل GTA تعیین نشده",
+          box(cx+22,cy+49,cell-44,31),persian.Get(),rgba(240,244,247));
+      txt(L"Direct2D  /  C++17  /  NO WEBVIEW",box(cx+22,cy+79,cell-44,20),englishTiny.Get(),rgba(174,196,208));
+    }
+    if(i==1){
+      txt(L"46.38.138.33:7777",box(cx+22,cy+45,cell-44,29),latinValue.Get(),rgba(236,240,245));
+      txt(L"open.mp  /  UDP status  /  SA-MP",box(cx+22,cy+78,cell-44,23),englishTiny.Get(),rgba(179,197,211));
+    }
+    if(i==2){
+      txt(L"FreeCam واقعی + بازگشت به آخرین نقطه دوربین",
+          box(cx+22,cy+42,cell-44,42),persian.Get(),rgba(231,235,238));
+      txt(L"شبکه چهـاررنگ و پنل سبک",box(cx+22,cy+83,cell-44,30),persian.Get(),rgba(173,197,209));
+    }
+    if(i==3){
+      action(Action::Refresh,L"↻  بروزرسانی",box(cx+20,cy+47,std::min(195.f,cell*.41f),44));
+      action(Action::Settings,L"تنظیمات",box(cx+29+std::min(195.f,cell*.41f),cy+47,
+         std::min(185.f,cell*.34f),44));
+    }
+  }
  }
  void secondary(){
   float x=NAV+32,w=W-x-32,y=TOP+30;
   if(page==Page::News){
    txt(L"اطلاعیه‌های سرور",box(x,y,w,65),persianTitle.Get(),rgba(240,236,230));
-   auto c=box(x,y+95,w,305);fill(c,rgba(24,33,43,.95f),16);stroke(c,rgba(90,103,110,.62f),16);
+   auto c=box(x,y+95,w,std::max(305.f,H-y-140));fill(c,rgba(24,33,43,.93f),16);stroke(c,rgba(90,103,110,.62f),16);graph(box(x+5,y+100,w-10,std::max(300.f,H-y-145)),false);
    txt(L"اعلامیه‌ها",box(x+30,y+130,w-60,49),persianLarge.Get(),rgba(231,181,103));
    txt(L"اخبار زنده پس از اتصال به سرویس انتشار نمایش داده می‌شوند.",
        box(x+30,y+207,w-60,45),persian.Get(),rgba(240,239,231));
@@ -305,11 +334,13 @@ struct App {
     L"۲. نام شخصیت را در تنظیمات وارد کن؛ مانند Ali_McClellan.",
     L"۳. ورود به سرور را بزن و احراز هویت را کامل کن.",
     L"۴. محل ورود و خروج توسط گیم‌مود سرور ذخیره می‌شود."};
-   for(int i=0;i<4;++i){fill(box(x,y+100+i*85,w,68),rgba(25,35,47,.98f),10);
+   for(int i=0;i<4;++i){fill(box(x,y+100+i*85,w,68),rgba(25,35,47,.92f),10);
+    graph(box(x+3,y+103+i*85,w-6,61),false);
     txt(steps[i],box(x+22,y+112+i*85,w-44,43),persian.Get(),rgba(231,236,239));}
   }else{
    txt(L"تنظیمات بازی",box(x,y,w,65),persianTitle.Get(),rgba(241,238,230));
-   fill(box(x,y+94,w,407),rgba(25,35,46,.98f),15);
+   fill(box(x,y+94,w,std::max(500.f,H-y-126)),rgba(25,35,46,.93f),15);
+   graph(box(x+7,y+101,w-14,std::max(490.f,H-y-136)),false);
    txt(L"مسیر فایل gta_sa.exe",box(x+25,y+114,w-50,42),persianLarge.Get(),rgba(231,183,101));
    action(Action::Browse,L"انتخاب مسیر GTA",box(x+w-220,y+169,185,42));
    txt(L"نام شخصیت — Name_Surname",box(x+25,y+229,w-50,44),persianLarge.Get(),rgba(230,182,101));
@@ -342,7 +373,7 @@ struct App {
   InvalidateRect(hwnd,nullptr,FALSE);
  }
  void animate(){
-  float hx=NAV+24+std::min(600.f,(W-NAV-48)*.56f)+6;
+  float hx=NAV+24+std::min(785.f,(W-NAV-48)*.61f)+6;
   float hy=TOP+37;
   float gw=W-hx-42;
   float gh=std::min(322.f,std::max(270.f,H*.44f))-26;
