@@ -55,7 +55,7 @@ function Install-Gta([string]$GtaFile) {
     if($vcSig.Status -ne 'Valid' -or $vcSig.SignerCertificate.Subject -notmatch 'Microsoft') {
         throw 'Bundled VC++ runtime is unsigned or not signed by Microsoft; refusing to run it.'
     }
-    $vcReg='HKLM:\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86'
+    $vcReg='HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86'
     $needsRuntime=$true
     try {
         $vcInfo=Get-ItemProperty -LiteralPath $vcReg -ErrorAction Stop
@@ -122,7 +122,7 @@ function Install-Gta([string]$GtaFile) {
             throw 'Installed launcher SHA256 mismatch'
         }
         $manifest=@(
-            "PGRP Alpha v0.5.3 - standalone release",
+            "PGRP v0.5.3 - client + launcher all-in-one",
             ("Installed: "+(Get-Date -Format o)),
             ("Source game: "+$sourceExe),
             ("Installed game: "+$dest),
