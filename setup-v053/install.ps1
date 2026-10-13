@@ -61,7 +61,13 @@ function Install-Gta([string]$GtaFile) {
         $vcInfo=Get-ItemProperty -LiteralPath $vcReg -ErrorAction Stop
         if($vcInfo.Installed -eq 1) {$needsRuntime=$false}
     } catch {}
-    if($needsRuntime) {
+    if($UiActionSmoke) {
+        # CI runs on a non-interactive Windows desktop: never block waiting
+        # for a prerequisite UAC elevation prompt during an installer GUI test.
+        # The signed VC++ payload was verified above and still ships in Setup.
+        Log ('GUI test: signed VC++ payload validated; installation deferred. Present=' + (-not $needsRuntime))
+    }
+    elseif($needsRuntime) {
         Log 'Installing official Microsoft VC++ 2015-2022 x86 runtime (Windows consent/UAC may be required).'
         $vc=Start-Process -FilePath $VcAsset -ArgumentList @('/install','/passive','/norestart') -Wait -PassThru
         if($vc.ExitCode -ne 0 -and $vc.ExitCode -ne 3010 -and $vc.ExitCode -ne 1638) {
