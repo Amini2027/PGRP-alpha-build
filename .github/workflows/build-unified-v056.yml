@@ -1,0 +1,235 @@
+name: Build PGRP v0.5.6 All-in-One Windows Setup
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/build-unified-v056.yml'
+      - 'setup-v056/**'
+      - 'launcher-native-v055/**'
+      - 'tools/apply-pgrp-chat-v052.ps1'
+      - 'tools/apply-pgrp-ingame-v054.ps1'
+      - 'tools/apply-pgrp-freecam-compat-v055.ps1'
+      - 'tools/apply-pgrp-real-freecam-v056.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-installer:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: false
+
+      - name: Build lightweight Win32 native C++ Direct2D launcher (Static CRT)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          cmake -S launcher-native-v055 -B build/native -G "Visual Studio 17 2022" -A x64
+          if($LASTEXITCODE -ne 0){throw 'CMake native launcher configure failed'}
+          cmake --build build/native --config Release --parallel
+          if($LASTEXITCODE -ne 0){throw 'Native launcher compile failed'}
+          New-Item -ItemType Directory 'build/launcher' -Force | Out-Null
+          Copy-Item 'build/native/Release/PGRPLauncher.exe' 'build/launcher/PGRPLauncher.exe'
+          $bytes=(Get-Item 'build/launcher/PGRPLauncher.exe').Length
+          Write-Host ("Native Win32 launcher size bytes="+$bytes)
+          if($bytes -gt 2000000){throw 'Launcher unexpectedly bigger than 2MB; check native build'}
+
+      - name: Verify new launcher stays running and capture UI snapshot
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Resolve-Path 'build/launcher/PGRPLauncher.exe').Path
+          $proc=Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if($proc.HasExited) {throw ('Launcher exited at startup, code '+$proc.ExitCode)}
+          try {
+            Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+            $size=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp=New-Object System.Drawing.Bitmap($size.Width,$size.Height)
+            $graphics=[System.Drawing.Graphics]::FromImage($bmp)
+            $graphics.CopyFromScreen($size.Location,[System.Drawing.Point]::Empty,$size.Size)
+            New-Item -ItemType Directory 'build/screenshots' -Force | Out-Null
+            $bmp.Save('build/screenshots/Launcher_v056_screen.png',[System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bmp.Dispose()
+            Write-Host 'Screenshot captured'
+          } catch {
+            Write-Host ('Screenshot unavailable on CI session: '+$_.Exception.Message)
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.6-Launcher-UI-snapshot
+          path: build/screenshots/
+          if-no-files-found: ignore
+
+      - name: Clone original tested PGRP OpenSAMP revision
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          git clone --depth 1 https://github.com/bssth/opensamp.git upstream
+          if($LASTEXITCODE -ne 0){throw 'Clone failed'}
+          git -C upstream fetch --depth 1 origin a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'Pinned checkout fetch failed'}
+          git -C upstream checkout --detach a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'Pinned checkout failed'}
+
+      - name: Patch and compile corrected in-game client
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./tools/apply-client-fixes.ps1 -Root upstream
+          & ./tools/apply-dialog-close-fix.ps1 -Root upstream
+          & ./tools/apply-pc1-compat.ps1 -Root upstream
+          & ./tools/apply-camera-scanlist-fix.ps1 -Root upstream
+          & ./tools/apply-world-sync-fix.ps1 -Root upstream
+          & ./tools/apply-pgrp-spawn-tab.ps1 -Root upstream
+          & ./tools/apply-pgrp-ui-v051.ps1 -Root upstream
+          & ./tools/apply-pgrp-chat-v052.ps1 -Root upstream
+          & ./tools/apply-pgrp-ingame-v054.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-compat-v055.ps1 -Root upstream
+          & ./tools/apply-pgrp-real-freecam-v056.ps1 -Root upstream
+          if(-not $?) {throw 'Client patch failed'}
+          $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if(-not $msbuild) {throw 'VS2022 MSBuild missing'}
+          & $msbuild 'upstream/opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
+          if($LASTEXITCODE -ne 0) {throw 'Native Win32 client compile failed'}
+          if(-not(Test-Path 'upstream/bin/Client.Native.dll')) {throw 'Missing DLL'}
+          if(-not(Test-Path 'upstream/bin/opensamp.exe')) {throw 'Missing opensamp'}
+
+      - name: Embed signed Microsoft VC++ x86 redistributable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory 'setup-v056/payload' -Force | Out-Null
+          Copy-Item 'upstream/bin/opensamp.exe' 'setup-v056/payload/opensamp.exe'
+          Copy-Item 'upstream/bin/Client.Native.dll' 'setup-v056/payload/Client.Native.dll'
+          Copy-Item 'build/launcher/PGRPLauncher.exe' 'setup-v056/payload/PGRPLauncher.exe'
+          $url='https://aka.ms/vs/17/release/vc_redist.x86.exe'
+          $out='setup-v056/payload/vc_redist.x86.exe'
+          Invoke-WebRequest -Uri $url -OutFile $out -MaximumRedirection 10
+          if((Get-Item $out).Length -lt 1000000){throw 'Downloaded VC++ runtime is too small'}
+          $signature=Get-AuthenticodeSignature -LiteralPath $out
+          if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft'){
+            throw 'VC++ runtime is not signed by Microsoft'
+          }
+          $sha=(Get-FileHash $out -Algorithm SHA256).Hash
+          $installerScript='setup-v056/install.ps1'
+          $script=[IO.File]::ReadAllText((Resolve-Path $installerScript).Path)
+          $token='__PGRP_MICROSOFT_VC_REDIST_SHA256__'
+          if(-not $script.Contains($token)){throw 'Missing runtime digest placeholder'}
+          [IO.File]::WriteAllText((Resolve-Path $installerScript).Path,
+            $script.Replace($token,$sha),[Text.UTF8Encoding]::new($false))
+          Write-Host ("Bundled signed Microsoft VC++ x86 SHA256="+$sha)
+
+      - name: Compile ONE standalone Windows installer EXE (no .NET runtime needed)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Push-Location setup-v056
+          try {
+            $env:GOOS='windows'; $env:GOARCH='amd64'; $env:CGO_ENABLED='0'
+            go build -trimpath -ldflags '-H windowsgui -s -w' -o ../PGRP_v0.5.6_All_in_One_Windows_Setup.exe .
+            if($LASTEXITCODE -ne 0){throw 'Go single Setup compile failed'}
+          } finally { Pop-Location }
+          if(-not(Test-Path 'PGRP_v0.5.6_All_in_One_Windows_Setup.exe')){throw 'Missing installer EXE'}
+          & ./PGRP_v0.5.6_All_in_One_Windows_Setup.exe --verify
+          if($LASTEXITCODE -ne 0){throw 'Bundled EXE hash verification failed'}
+
+      - name: Verify real graphical setup window startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $marker=Join-Path $env:TEMP 'PGRP_v056_UI_Smoke.ok'
+          Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+          $path=(Resolve-Path './PGRP_v0.5.6_All_in_One_Windows_Setup.exe').Path
+          $p=Start-Process -FilePath $path -ArgumentList @('-UiSmoke') -PassThru
+          if(-not($p.WaitForExit(70000))){
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            throw 'Setup UI smoke timeout'
+          }
+          if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
+            Get-Content (Join-Path $env:TEMP 'PGRP_v056_Setup_Boot.log') -Tail 40 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v056_Setup.log') -Tail 40 -ErrorAction SilentlyContinue
+            throw 'WinForms setup UI smoke failed'
+          }
+
+      - name: Exercise Browse and Install GUI handlers on synthetic owned GTA
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $temp=Join-Path $env:RUNNER_TEMP 'pgrp_v056_installer_smoke'
+          $src=Join-Path $temp 'OriginalGTA'
+          $dest=Join-Path $temp 'PGRP_Alpha_v0.5.6'
+          New-Item -ItemType Directory -Force -Path (Join-Path $src 'models'),(Join-Path $src 'data') | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $src 'gta_sa.exe'),[byte[]](1,2,3,4,5))
+          [IO.File]::WriteAllText((Join-Path $src 'models/gta3.img'),'synthetic CI only; no Rockstar game included')
+          $hashBefore=(Get-FileHash (Join-Path $src 'gta_sa.exe') -Algorithm SHA256).Hash
+          $marker=Join-Path $env:TEMP 'PGRP_v056_UI_Action_Smoke.ok'
+          $smokeError=Join-Path $env:TEMP 'PGRP_v056_UI_Action_Smoke.error'
+          Remove-Item -LiteralPath $marker,$smokeError -Force -ErrorAction SilentlyContinue
+          $exe=(Resolve-Path './PGRP_v0.5.6_All_in_One_Windows_Setup.exe').Path
+          $p=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"' + (Join-Path $src 'gta_sa.exe') + '"'),'-InstallRoot',('"'+$dest+'"')) -PassThru
+          if(-not $p.WaitForExit(65000)){
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v056_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v056_Setup_Boot.log') -Tail 30 -ErrorAction SilentlyContinue
+            throw 'Real installer click test timed out (65 sec)'
+          }
+          if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v056_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
+            throw 'Install GUI actual action smoke failed'
+          }
+          foreach($item in @(
+            @{src='setup-v056/payload/opensamp.exe';dst=(Join-Path $dest 'GTA_San_Andreas/opensamp.exe')},
+            @{src='setup-v056/payload/Client.Native.dll';dst=(Join-Path $dest 'GTA_San_Andreas/Client.Native.dll')},
+            @{src='setup-v056/payload/PGRPLauncher.exe';dst=(Join-Path $dest 'PGRPLauncher.exe')}
+          )) {
+            $actual=(Get-FileHash -LiteralPath $item.dst -Algorithm SHA256).Hash
+            $expected=(Get-FileHash -LiteralPath $item.src -Algorithm SHA256).Hash
+            if($actual -ne $expected){throw ('Installed hash mismatch: '+$item.dst)}
+          }
+          if((Get-FileHash -LiteralPath (Join-Path $src 'gta_sa.exe') -Algorithm SHA256).Hash -ne $hashBefore){
+            throw 'Original GTA was modified'
+          }
+          Write-Host 'PASS: Single installer UI / Browse / Install / exact hashes / original game unchanged'
+
+      - name: Publish all-in-one setup artifact and source notices
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory 'PGRP_v056_One_Setup_Release' -Force | Out-Null
+          Copy-Item 'PGRP_v0.5.6_All_in_One_Windows_Setup.exe' 'PGRP_v056_One_Setup_Release/'
+          Copy-Item 'upstream/LICENSE' 'PGRP_v056_One_Setup_Release/LICENSE.txt'
+          Copy-Item 'upstream/THIRD-PARTY-NOTICES.md' 'PGRP_v056_One_Setup_Release/'
+          Copy-Item 'setup-v056/install.ps1' 'PGRP_v056_One_Setup_Release/'
+          Copy-Item 'setup-v056/main.go' 'PGRP_v056_One_Setup_Release/setup-main.go'
+          Copy-Item 'launcher-native-v055/pgrp_launcher.cpp' 'PGRP_v056_One_Setup_Release/launcher-program.cpp'
+          git -C upstream archive --format=zip --output=../PGRP_v056_One_Setup_Release/OpenSAMP_corresponding_source.zip HEAD
+          if($LASTEXITCODE -ne 0){throw 'Source archive failed'}
+          @(
+            'PGRP v0.5.6 all-in-one launcher + OpenSAMP Win32 native client + Microsoft VC++ x86 prerequisite.'
+            'Windows 10/11 64-bit; standalone installer EXE.'
+            'Select an existing legally owned GTA SA gta_sa.exe; installer creates a SEPARATE game copy.'
+            'Installs to %LOCALAPPDATA%/PaladinGuard/PGRP_Alpha_v0.5.6/'
+            'Desktop shortcut and optional opening point to PGRPLauncher.exe, NOT opensamp.exe.'
+            'Contains NO GTA copyrighted game content. Does NOT modify server database/accounts.'
+            'No .NET runtime needed; launcher is native Direct2D with static x64 CRT.'
+            'Never delete working v0.5.1 until testing confirms gameplay/reconnect stability.'
+            'Server-side spawn fix is in the separate complete-server ZIP.'
+          ) | Set-Content 'PGRP_v056_One_Setup_Release/README.txt' -Encoding UTF8
+          Get-FileHash 'PGRP_v0.5.6_All_in_One_Windows_Setup.exe' -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.6-All-in-One-Windows-Setup
+          path: PGRP_v056_One_Setup_Release/
+          if-no-files-found: error
+          retention-days: 14
