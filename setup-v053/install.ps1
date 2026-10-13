@@ -50,10 +50,12 @@ function Install-Gta([string]$GtaFile) {
         if(-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw ("Setup payload missing: "+$file) }
     }
     $sourceExe=Resolve-Gta $GtaFile
-    # Verify genuine Microsoft x86 VC++ runtime before invoking with elevation.
-    $vcSig=Get-AuthenticodeSignature -LiteralPath $VcAsset
-    if($vcSig.Status -ne 'Valid' -or $vcSig.SignerCertificate.Subject -notmatch 'Microsoft') {
-        throw 'Bundled VC++ runtime is unsigned or not signed by Microsoft; refusing to run it.'
+    # Signer is checked by the Windows CI before embedding into this setup.
+    # Recheck its exact SHA256 offline at install time without loading
+    # PowerShell Security modules (broken on some Windows 10 installations).
+    $expectedVcHash='__PGRP_MICROSOFT_VC_REDIST_SHA256__'
+    if((Get-PgrpSHA256 $VcAsset) -ne $expectedVcHash) {
+        throw 'Bundled VC++ runtime integrity failure (SHA256 mismatch).'
     }
     $vcReg='HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86'
     $needsRuntime=$true
@@ -65,7 +67,7 @@ function Install-Gta([string]$GtaFile) {
         # CI runs on a non-interactive Windows desktop: never block waiting
         # for a prerequisite UAC elevation prompt during an installer GUI test.
         # The signed VC++ payload was verified above and still ships in Setup.
-        Log ('GUI test: signed VC++ payload validated; installation deferred. Present=' + (-not $needsRuntime))
+        Log ('GUI test: CI-signed VC++ payload hash validated; installation deferred. Present=' + (-not $needsRuntime))
     }
     elseif($needsRuntime) {
         Log 'Installing official Microsoft VC++ 2015-2022 x86 runtime (Windows consent/UAC may be required).'
