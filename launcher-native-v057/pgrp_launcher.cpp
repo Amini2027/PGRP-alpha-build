@@ -104,13 +104,22 @@ struct App {
    dir(p+L"\\models")&&dir(p+L"\\data");
  }
  void findGame(){
+  // One-folder install: gta_sa.exe lives right next to PGRPLauncher.exe.
+  // Favor that verified local copy even if a previous launcher saved an older
+  // path in the persistent settings.
+  wchar_t myself[32768]{};
+  if(GetModuleFileNameW(nullptr,myself,32768)>0){
+   std::wstring here=parent(myself)+L"\\gta_sa.exe";
+   if(valid(here)){gameExe=here;return;}
+  }
   if(valid(gameExe))return;
   wchar_t user[MAX_PATH]{};
   if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,user)))return;
   for(auto version:{L"0.5.7",L"0.5.7",L"0.5.5",L"0.5.4",L"0.5.3",L"0.5.2",L"0.5.1"}){
-   std::wstring p=std::wstring(user)+L"\\PaladinGuard\\PGRP_Alpha_v"+version+
-    L"\\GTA_San_Andreas\\gta_sa.exe";
-   if(valid(p)){gameExe=p;break;}
+   std::wstring root=std::wstring(user)+L"\\PaladinGuard\\PGRP_Alpha_v"+version;
+   for(auto candidate:{root+L"\\gta_sa.exe",root+L"\\GTA_San_Andreas\\gta_sa.exe"}){
+    if(valid(candidate)){gameExe=candidate;return;}
+   }
   }
  }
  bool init(HINSTANCE h){
