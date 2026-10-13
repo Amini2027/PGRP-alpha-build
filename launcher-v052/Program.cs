@@ -293,7 +293,7 @@ internal sealed class LauncherWindow : Form
             top += 59;
         }
         _side.Controls.Add(Label("PGRP CLIENT  /  WINDOWS", 22, 580, 195, 25, 9, false, Muted));
-        _side.Controls.Add(Label("LAUNCHER PREVIEW 0.5.2", 22, 607, 195, 22, 9, false, Gold));
+        _side.Controls.Add(Label("LAUNCHER 0.5.3", 22, 607, 195, 22, 9, false, Gold));
     }
 
     private void BuildHome()
@@ -465,7 +465,7 @@ internal sealed class LauncherWindow : Form
         if (IsGameReady(_config.GtaExecutable)) return;
         var root = Path.Combine(Environment.GetFolderPath(
             Environment.SpecialFolder.LocalApplicationData), "PaladinGuard");
-        foreach (var version in new[] { "PGRP_Alpha_v0.5.2", "PGRP_Alpha_v0.5.1", "PGRP_Alpha_v0.4.2" })
+        foreach (var version in new[] { "PGRP_Alpha_v0.5.3", "PGRP_Alpha_v0.5.2", "PGRP_Alpha_v0.5.1", "PGRP_Alpha_v0.4.2" })
         {
             var exe = Path.Combine(root, version, "GTA_San_Andreas", "gta_sa.exe");
             if (!IsGameReady(exe)) continue;
@@ -557,7 +557,10 @@ internal sealed class LauncherWindow : Form
             // Read by the optional PGRP v0.5.2 native patch. Existing clients
             // still launch, but require manual //connect as in v0.5.1.
             psi.Environment["PGRP_AUTOCONNECT_NICK"] = nickname;
-            Process.Start(psi);
+            var started = Process.Start(psi);
+            if (started == null) throw new InvalidOperationException("Launcher process was not created.");
+            // Hand off to the game process; release memory on low-spec PCs.
+            Close();
         }
         catch (Exception ex)
         {
