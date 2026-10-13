@@ -210,7 +210,7 @@ jobs:
           Copy-Item 'upstream/THIRD-PARTY-NOTICES.md' 'PGRP_v055_One_Setup_Release/'
           Copy-Item 'setup-v055/install.ps1' 'PGRP_v055_One_Setup_Release/'
           Copy-Item 'setup-v055/main.go' 'PGRP_v055_One_Setup_Release/setup-main.go'
-          Copy-Item 'launcher-native-v055/pgrp_launcher.cpp' 'PGRP_v055_One_Setup_Release/launcher-program.cs'
+          Copy-Item 'launcher-native-v055/pgrp_launcher.cpp' 'PGRP_v055_One_Setup_Release/launcher-program.cpp'
           git -C upstream archive --format=zip --output=../PGRP_v055_One_Setup_Release/OpenSAMP_corresponding_source.zip HEAD
           if($LASTEXITCODE -ne 0){throw 'Source archive failed'}
           @(
@@ -220,7 +220,7 @@ jobs:
             'Installs to %LOCALAPPDATA%/PaladinGuard/PGRP_Alpha_v0.5.5/'
             'Desktop shortcut and optional opening point to PGRPLauncher.exe, NOT opensamp.exe.'
             'Contains NO GTA copyrighted game content. Does NOT modify server database/accounts.'
-            'No separate .NET runtime needed; launcher is bundled self-contained.'
+            'No .NET runtime needed; launcher is native Direct2D with static x64 CRT.'
             'Never delete working v0.5.1 until testing confirms gameplay/reconnect stability.'
             'Server-side spawn fix is in the separate complete-server ZIP.'
           ) | Set-Content 'PGRP_v055_One_Setup_Release/README.txt' -Encoding UTF8
