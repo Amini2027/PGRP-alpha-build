@@ -232,7 +232,7 @@ jobs:
             'Select an existing legally owned GTA SA gta_sa.exe; installer creates a SEPARATE game copy.'
             'Installs to user-selected folder (default %LOCALAPPDATA%/PaladinGuard/PGRP_Alpha_v0.5.7/) with gta_sa.exe and launcher side by side.'
             'Desktop shortcut and optional opening point to PGRPLauncher.exe, NOT opensamp.exe.'
-            'GTA is copied from user's selected source next to PGRPLauncher.exe; contains NO GTA copyrighted game content. No server database mutation.'
+            'GTA is copied from the selected source next to PGRPLauncher.exe; contains NO GTA copyrighted game content. No server database mutation.'
             'No .NET runtime needed; launcher is native Direct2D with static x64 CRT.'
             'Never delete working v0.5.1 until testing confirms gameplay/reconnect stability.'
             'Server-side spawn fix is in the separate complete-server ZIP.'
