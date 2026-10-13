@@ -535,18 +535,26 @@ internal sealed class LauncherWindow : Form
             var a=_nodes[i];
             float ax=area.X+a.X*area.Width;
             float ay=area.Y+a.Y*area.Height;
-            // Three nearest forward neighbors are enough; bounded degree
-            // avoids the tangled, flickering web seen in the first prototype.
-            var nearest = _nodes.Skip(i+1)
-                .Select((p,k) => new {idx=i+k+1, d2=(ax-(area.X+p.X*area.Width))*
-                    (ax-(area.X+p.X*area.Width))+
-                    (ay-(area.Y+p.Y*area.Height))*(ay-(area.Y+p.Y*area.Height))})
-                .Where(o => o.d2 < 120*120).OrderBy(o => o.d2).Take(3);
-            foreach(var edge in nearest)
+            // Bounded three-neighbor graph with NO LINQ allocations or lists
+            // in the per-frame paint loop (helps 4GB/old-GPU machines).
+            int n0=-1,n1=-1,n2=-1;
+            float d0=14400f,d1=14400f,d2=14400f;
+            for(int j=i+1;j<_nodes.Count;j++)
             {
-                var b=_nodes[edge.idx];
-                g.DrawLine(line,ax,ay,area.X+b.X*area.Width,area.Y+b.Y*area.Height);
+                var q=_nodes[j];
+                float dx=ax-(area.X+q.X*area.Width);
+                float dy=ay-(area.Y+q.Y*area.Height);
+                float dist=dx*dx+dy*dy;
+                if(dist<d0) { d2=d1; n2=n1; d1=d0; n1=n0; d0=dist; n0=j; }
+                else if(dist<d1) { d2=d1; n2=n1; d1=dist; n1=j; }
+                else if(dist<d2) { d2=dist; n2=j; }
             }
+            if(n0>=0) g.DrawLine(line,ax,ay,
+                area.X+_nodes[n0].X*area.Width,area.Y+_nodes[n0].Y*area.Height);
+            if(n1>=0) g.DrawLine(line,ax,ay,
+                area.X+_nodes[n1].X*area.Width,area.Y+_nodes[n1].Y*area.Height);
+            if(n2>=0) g.DrawLine(line,ax,ay,
+                area.X+_nodes[n2].X*area.Width,area.Y+_nodes[n2].Y*area.Height);
             g.FillEllipse(dot,ax-2.2f,ay-2.2f,4.4f,4.4f);
         }
         g.Clip=saved;
