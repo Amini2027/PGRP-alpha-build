@@ -57,7 +57,7 @@ struct App {
  ComPtr<IDWriteFactory> write;
  ComPtr<ID2D1HwndRenderTarget> target;
  ComPtr<ID2D1SolidColorBrush> pen;
- ComPtr<IDWriteTextFormat> latin,englishTiny,persian,persianTitle,persianLarge;
+ ComPtr<IDWriteTextFormat> latin,latinValue,englishTiny,persian,persianTitle,persianLarge;
  std::array<Node,44> nodes{};
  std::vector<Hit> hits;
  Page page=Page::Home;
@@ -123,11 +123,13 @@ struct App {
     DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,size,locale,&f);
   };
   if(FAILED(fmt(latin,28,DWRITE_FONT_WEIGHT_BOLD,L"en-US")) ||
+     FAILED(fmt(latinValue,23,DWRITE_FONT_WEIGHT_BOLD,L"en-US")) ||
      FAILED(fmt(englishTiny,13,DWRITE_FONT_WEIGHT_NORMAL,L"en-US")) ||
      FAILED(fmt(persian,18,DWRITE_FONT_WEIGHT_NORMAL,L"fa-IR")) ||
      FAILED(fmt(persianTitle,32,DWRITE_FONT_WEIGHT_BOLD,L"fa-IR")) ||
      FAILED(fmt(persianLarge,23,DWRITE_FONT_WEIGHT_BOLD,L"fa-IR")))return false;
   latin->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+  latinValue->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
   englishTiny->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
   persian->SetReadingDirection(DWRITE_READING_DIRECTION_RIGHT_TO_LEFT);
   persianTitle->SetReadingDirection(DWRITE_READING_DIRECTION_RIGHT_TO_LEFT);
@@ -161,7 +163,7 @@ struct App {
   gtaPath=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",gameExe.c_str(),
     WS_CHILD|ES_READONLY|ES_AUTOHSCROLL,0,0,100,32,hwnd,(HMENU)102,h,nullptr);
   SendMessageW(nickname,EM_SETLIMITTEXT,24,0);
-  ShowWindow(hwnd,SW_SHOW);
+  ShowWindow(hwnd,SW_SHOWMAXIMIZED);
   SetTimer(hwnd,ANIM_TIMER,lowSpec?67:33,nullptr);
   SetTimer(hwnd,SERVER_TIMER,12000,nullptr);
   layout();
@@ -193,6 +195,10 @@ struct App {
  }
  void txt(std::wstring const& s,D2D1_RECT_F r,IDWriteTextFormat* fmt,D2D1_COLOR_F c){
   color(c);
+  // Numbers and endpoint labels must remain LTR; Persian uses full shaping.
+  bool hasPersian=false;
+  for(auto ch:s) if(ch>=0x0600 && ch<=0x06ff){hasPersian=true;break;}
+  if(!hasPersian && fmt==persianLarge.Get())fmt=latinValue.Get();
   target->DrawTextW(s.c_str(),(UINT32)s.size(),fmt,r,pen.Get(),
       D2D1_DRAW_TEXT_OPTIONS_CLIP);
  }
