@@ -464,7 +464,8 @@ internal sealed class LauncherWindow : Form
         sf.Trimming=StringTrimming.EllipsisCharacter;
         sf.LineAlignment=StringAlignment.Center;
         sf.Alignment=center?StringAlignment.Center:right?StringAlignment.Far:StringAlignment.Near;
-        if(right) sf.FormatFlags|=StringFormatFlags.DirectionRightToLeft;
+        if(right && t.Any(ch => ch >= '\u0600' && ch <= '\u06ff'))
+            sf.FormatFlags|=StringFormatFlags.DirectionRightToLeft;
         g.DrawString(t,font,brush,new RectangleF(x,y,w,h),sf);
     }
 
@@ -534,12 +535,17 @@ internal sealed class LauncherWindow : Form
             var a=_nodes[i];
             float ax=area.X+a.X*area.Width;
             float ay=area.Y+a.Y*area.Height;
-            for(int j=i+1;j<_nodes.Count;j++)
+            // Three nearest forward neighbors are enough; bounded degree
+            // avoids the tangled, flickering web seen in the first prototype.
+            var nearest = _nodes.Skip(i+1)
+                .Select((p,k) => new {idx=i+k+1, d2=(ax-(area.X+p.X*area.Width))*
+                    (ax-(area.X+p.X*area.Width))+
+                    (ay-(area.Y+p.Y*area.Height))*(ay-(area.Y+p.Y*area.Height))})
+                .Where(o => o.d2 < 120*120).OrderBy(o => o.d2).Take(3);
+            foreach(var edge in nearest)
             {
-                var b=_nodes[j];
-                float bx=area.X+b.X*area.Width,by=area.Y+b.Y*area.Height;
-                float dx=ax-bx,dy=ay-by;
-                if(dx*dx+dy*dy<100*100)g.DrawLine(line,ax,ay,bx,by);
+                var b=_nodes[edge.idx];
+                g.DrawLine(line,ax,ay,area.X+b.X*area.Width,area.Y+b.Y*area.Height);
             }
             g.FillEllipse(dot,ax-2.2f,ay-2.2f,4.4f,4.4f);
         }
@@ -603,7 +609,8 @@ internal sealed class LauncherWindow : Form
         g.FillRectangle(new SolidBrush(Color.FromArgb(105,213,170,99)),visualX+10,heroY+25,2,heroH-50);
         float leftW=available*0.52f;
         TXT(g,"PALADIN GUARD  /  ROLEPLAY",_f12b,Gold,x+32,heroY+18,leftW-30,35);
-        TXT(g,"به قلمرو پالادین خوش آمدی",_f30b,Light,x+31,heroY+65,leftW-35,70,right:true);
+        TXT(g,"به قلمرو پالادین خوش آمدی",leftW < 580 ? _f18b : _f30b,
+            Light,x+31,heroY+65,leftW-35,70,right:true);
         TXT(g,"یک دنیای اختصاصی، یک هویت، ماجراجویی بدون محدودیت",_f11,Muted,x+32,heroY+143,leftW-38,43,right:true);
         float btnY=heroY+heroH-85;
         Button(g,"play","▶   ورود به سرور",new RectangleF(x+33,btnY,Math.Max(186,leftW*0.50f),53),true);
