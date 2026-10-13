@@ -73,13 +73,13 @@ Patch 'native/gui/imgui_manager.cpp' @'
                 IM_COL32(227,177,93,255),IM_COL32(102,174,176,255),
                 IM_COL32(102,174,176,255),IM_COL32(227,177,93,255));
             const float center=w*0.5f, top=h*0.16f;
-            const float half=ImMin(320.0f,w*0.46f);
+            const float half=(w*0.46f < 320.0f ? w*0.46f : 320.0f);
             draw->AddRect(ImVec2(center-half,top),ImVec2(center+half,top+h*0.65f),
                 IM_COL32(173,132,69,115),14.0f,0,1.4f);
             draw->AddLine(ImVec2(center-half+24,top+87),
                           ImVec2(center+half-24,top+87),IM_COL32(223,181,105,130),1.0f);
             const char* brand="PALADIN GUARD";
-            float titleSize=ImMin(30.0f,w/27.0f);
+            float titleSize=(w/27.0f < 30.0f ? w/27.0f : 30.0f);
             ImFont* font=ImGui::GetFont();
             const ImVec2 size=font->CalcTextSizeA(titleSize,FLT_MAX,0.0f,brand);
             draw->AddText(font,titleSize,ImVec2(center-size.x*0.5f,top+27),
