@@ -4,9 +4,10 @@ on:
     paths:
       - '.github/workflows/build-unified-v055.yml'
       - 'setup-v055/**'
-      - 'launcher-v055/**'
+      - 'launcher-native-v055/**'
       - 'tools/apply-pgrp-chat-v052.ps1'
-      - 'tools/apply-pgrp-ingame-v055.ps1'
+      - 'tools/apply-pgrp-ingame-v054.ps1'
+      - 'tools/apply-pgrp-freecam-compat-v055.ps1'
   workflow_dispatch:
 
 permissions:
@@ -90,7 +91,8 @@ jobs:
           & ./tools/apply-pgrp-spawn-tab.ps1 -Root upstream
           & ./tools/apply-pgrp-ui-v051.ps1 -Root upstream
           & ./tools/apply-pgrp-chat-v052.ps1 -Root upstream
-          & ./tools/apply-pgrp-ingame-v055.ps1 -Root upstream
+          & ./tools/apply-pgrp-ingame-v054.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-compat-v055.ps1 -Root upstream
           if(-not $?) {throw 'Client patch failed'}
           $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
@@ -208,7 +210,7 @@ jobs:
           Copy-Item 'upstream/THIRD-PARTY-NOTICES.md' 'PGRP_v055_One_Setup_Release/'
           Copy-Item 'setup-v055/install.ps1' 'PGRP_v055_One_Setup_Release/'
           Copy-Item 'setup-v055/main.go' 'PGRP_v055_One_Setup_Release/setup-main.go'
-          Copy-Item 'launcher-v055/Program.cs' 'PGRP_v055_One_Setup_Release/launcher-program.cs'
+          Copy-Item 'launcher-native-v055/pgrp_launcher.cpp' 'PGRP_v055_One_Setup_Release/launcher-program.cs'
           git -C upstream archive --format=zip --output=../PGRP_v055_One_Setup_Release/OpenSAMP_corresponding_source.zip HEAD
           if($LASTEXITCODE -ne 0){throw 'Source archive failed'}
           @(
