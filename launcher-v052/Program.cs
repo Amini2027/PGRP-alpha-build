@@ -43,7 +43,7 @@ internal sealed class NetworkCanvas : Panel
     private readonly List<Node> _nodes = new();
     private readonly Random _random = new();
     private bool _lowSpec = true;
-    private int _frame;
+    private bool _seeded;
 
     public NetworkCanvas()
     {
@@ -53,7 +53,6 @@ internal sealed class NetworkCanvas : Panel
         ResizeRedraw = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                  ControlStyles.OptimizedDoubleBuffer, true);
-        for (int i = 0; i < 30; i++) AddNode();
         MouseDown += (_, e) =>
         {
             if (e.Button != MouseButtons.Left) return;
@@ -68,6 +67,16 @@ internal sealed class NetworkCanvas : Panel
     }
 
     public void SetLowSpec(bool value) => _lowSpec = value;
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (!_seeded && Width > 150 && Height > 150)
+        {
+            _seeded = true;
+            for (int i = 0; i < 30; i++) AddNode();
+        }
+    }
 
     private void AddNode(Point? near = null)
     {
@@ -118,7 +127,7 @@ internal sealed class NetworkCanvas : Panel
             p.X = Math.Clamp(p.X, 6, Math.Max(6, Width - 6));
             p.Y = Math.Clamp(p.Y, 6, Math.Max(6, Height - 6));
         }
-        if (++_frame % (_lowSpec ? 5 : 8) == 0) Invalidate();
+        Invalidate(); // 13 FPS low-spec, 25 FPS normal: no uncapped redraw loop.
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -290,6 +299,7 @@ internal sealed class LauncherWindow : Form
     private void BuildHome()
     {
         _home.BackColor = Color.Transparent;
+        _home.AutoScroll = true;
         var hero = Box(18, 17, 535, 290);
         _home.Controls.Add(hero);
         hero.Controls.Add(Label("PALADIN GUARD  /  ROLEPLAY", 30, 24, 445, 27, 12, true, Gold));
@@ -347,6 +357,7 @@ internal sealed class LauncherWindow : Form
     private void BuildNews()
     {
         _news.BackColor = Color.Transparent;
+        _news.AutoScroll = true;
         var card = Box(18, 17, 827, 270);
         _news.Controls.Add(card);
         card.Controls.Add(Label("اعلامیه‌ها  /  PGRP NETWORK", 28, 24, 750, 44, 20, true, Gold));
@@ -358,6 +369,7 @@ internal sealed class LauncherWindow : Form
     private void BuildSettings()
     {
         _settings.BackColor = Color.Transparent;
+        _settings.AutoScroll = true;
         var card = Box(18, 17, 827, 495);
         _settings.Controls.Add(card);
         card.Controls.Add(Label("تنظیمات لانچر", 29, 20, 740, 45, 20, true, Gold));
