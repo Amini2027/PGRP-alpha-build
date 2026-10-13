@@ -217,19 +217,22 @@ struct App {
   // Four restrained moving colors: gold / blue / red / white.
   // No textures, WebView, particles or allocation in this paint path.
   const D2D1_COLOR_F colors[]={
-    rgba(233,182,94,hero?.58f:.34f), rgba(61,160,242,hero?.59f:.32f),
-    rgba(217,66,78,hero?.55f:.30f), rgba(239,244,255,hero?.59f:.29f)};
+    rgba(233,182,94,hero?.52f:.16f), rgba(61,160,242,hero?.54f:.16f),
+    rgba(217,66,78,hero?.51f:.14f), rgba(239,244,255,hero?.56f:.17f)};
   for(size_t i=0;i<nodes.size();++i){
+   if(!hero && (i&1))continue; // halve low-priority background mesh work
    float x=r.left+nodes[i].x*(r.right-r.left);
    float y=r.top+nodes[i].y*(r.bottom-r.top);
    int links=0;
-   for(size_t j=i+1;j<nodes.size()&&links<3;++j){
+   const int maxLinks=hero?2:1;
+   for(size_t j=i+1;j<nodes.size()&&links<maxLinks;++j){
+    if(!hero && (j&1))continue;
     float xx=r.left+nodes[j].x*(r.right-r.left);
     float yy=r.top+nodes[j].y*(r.bottom-r.top);
     float dx=x-xx,dy=y-yy;
     if(dx*dx+dy*dy<15000.f){line(x,y,xx,yy,colors[(i+j)%4],hero?1.15f:.7f);++links;}
    }
-   auto dot=colors[i%4];dot.a=hero?.93f:.73f;
+   auto dot=colors[i%4];dot.a=hero?.85f:.41f;
    circle(x,y,hero?2.65f:1.9f,dot);
   }
  }
@@ -241,7 +244,7 @@ struct App {
   fill(box(0,0,W,TOP),rgba(13,19,28,.97f));
   fill(box(0,0,W,3),rgba(228,182,102));
   txt(L"PALADIN GUARD",box(28,20,320,39),latin.Get(),rgba(234,182,94));
-  txt(L"PGRP  /  VERSION 0.5.5",box(W-254,25,225,30),englishTiny.Get(),rgba(151,178,188));
+  txt(L"PGRP  /  VERSION 0.5.6",box(W-254,25,225,30),englishTiny.Get(),rgba(151,178,188));
   txt(L"P G R P",box(22,109,184,43),latin.Get(),rgba(236,184,100));
   txt(L"PALADIN GUARD",box(22,154,190,23),englishTiny.Get(),rgba(240,237,231));
   txt(L"ROLEPLAY / IRAN",box(22,186,185,28),englishTiny.Get(),rgba(162,185,195));
@@ -262,7 +265,7 @@ struct App {
  }
  void home(){
   float x=NAV+24,aw=W-x-24,y=TOP+24;
-  float heroH=std::min(322.f,std::max(270.f,H*.44f));
+  float heroH=std::min(296.f,std::max(244.f,(H-TOP-25.f)*.38f));
   auto hero=box(x,y,aw,heroH);
   fill(hero,rgba(23,31,42,.98f),18);stroke(hero,rgba(128,105,65,.6f),18);
   float left=std::min(785.f,aw*.61f);
@@ -270,8 +273,8 @@ struct App {
   graph(gr,true);
   line(x+left,y+25,x+left,y+heroH-25,rgba(236,189,115,.45f));
   txt(L"PALADIN GUARD  /  ROLEPLAY",box(x+35,y+23,left-45,30),englishTiny.Get(),rgba(229,182,99));
-  txt(L"به قلمرو پالادین خوش آمدی",box(x+26,y+81,left-38,74),persianLarge.Get(),rgba(246,241,233));
-  txt(L"ماجراجویی خودت را در دنیایی اختصاصی آغاز کن",box(x+35,y+156,left-55,42),persian.Get(),rgba(171,193,204));
+  txt(L"به قلمرو پالادین خوش آمدی",box(x+26,y+68,left-38,74),persianLarge.Get(),rgba(246,241,233));
+  txt(L"ماجراجویی خودت را در دنیایی اختصاصی آغاز کن",box(x+35,y+132,left-55,42),persian.Get(),rgba(171,193,204));
   action(Action::Play,L"▶  ورود به سرور",box(x+32,y+heroH-82,std::max(185.f,left*.48f),49),true);
   action(Action::Settings,L"تنظیمات بازی",box(x+47+std::max(185.f,left*.48f),y+heroH-82,
     std::max(128.f,left*.26f),49));
@@ -376,7 +379,7 @@ struct App {
   float hx=NAV+24+std::min(785.f,(W-NAV-48)*.61f)+6;
   float hy=TOP+37;
   float gw=W-hx-42;
-  float gh=std::min(322.f,std::max(270.f,H*.44f))-26;
+  float gh=std::min(296.f,std::max(244.f,(H-TOP-25.f)*.38f))-26;
   for(auto& n:nodes){
    float px=hx+n.x*gw,py=hy+n.y*gh;
    float dx=px-mx,dy=py-my;
