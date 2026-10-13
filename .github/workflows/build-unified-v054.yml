@@ -6,6 +6,7 @@ on:
       - 'setup-v054/**'
       - 'launcher-v054/**'
       - 'tools/apply-pgrp-chat-v052.ps1'
+      - 'tools/apply-pgrp-ingame-v054.ps1'
   workflow_dispatch:
 
 permissions:
