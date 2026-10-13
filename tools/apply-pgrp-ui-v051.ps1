@@ -250,8 +250,8 @@ Patch 'native/gui/imgui_manager.cpp' '    ImGui::StyleColorsDark();' @'
     style.Colors[ImGuiCol_HeaderHovered]=ImVec4(0.64f,0.47f,0.19f,0.86f);
     style.Colors[ImGuiCol_ScrollbarGrab]=ImVec4(0.55f,0.40f,0.17f,0.8f);
 '@ 'design system v1'
-Patch 'native/gui/dialog.cpp' '        ImGui::Begin(title, nullptr, flags);' @'
-        ImGui::Begin(title, nullptr, flags);
+Patch 'native/gui/dialog.cpp' '        ImGui::Begin(stableTitle.c_str(), nullptr, flags);' @'
+        ImGui::Begin(stableTitle.c_str(), nullptr, flags);
         ImGui::TextColored(ImVec4(0.83f,0.65f,0.29f,1.0f),
                            "PGRP  /  PALADIN GUARD ROLEPLAY");
         ImGui::Separator();
