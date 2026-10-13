@@ -256,9 +256,18 @@ internal sealed class LauncherWindow : Form
     {
         float w=Math.Max(_scene.Width,1), h=Math.Max(_scene.Height,1);
         bool active=_scene.ClientRectangle.Contains(_mouse);
+        float contentX=NavWidth+23;
+        float contentW=w-contentX-22;
+        float hy=HeaderHeight+25;
+        float hh=Math.Max(250,Math.Min(320,h*0.40f));
+        var heroNet=new RectangleF(contentX+contentW*0.56f+15,hy+10,
+            contentW*0.44f-25,hh-20);
+        bool onHero=heroNet.Contains(_mouse);
+        float netW=onHero?heroNet.Width:w,netH=onHero?heroNet.Height:h;
         foreach(var p in _nodes)
         {
-            float x=p.X*w, y=p.Y*h;
+            float x=onHero ? heroNet.X+p.X*heroNet.Width : p.X*w;
+            float y=onHero ? heroNet.Y+p.Y*heroNet.Height : p.Y*h;
             if(active)
             {
                 float dx=x-_mouse.X,dy=y-_mouse.Y,dist2=dx*dx+dy*dy;
@@ -266,8 +275,8 @@ internal sealed class LauncherWindow : Form
                 {
                     float inv=1f/MathF.Sqrt(dist2);
                     float repulse=(190-MathF.Sqrt(dist2))*0.014f;
-                    p.VX+=dx*inv*repulse/w*0.23f;
-                    p.VY+=dy*inv*repulse/h*0.23f;
+                    p.VX+=dx*inv*repulse/netW*0.23f;
+                    p.VY+=dy*inv*repulse/netH*0.23f;
                 }
             }
             p.VX=Math.Clamp(p.VX*0.97f,-0.0017f,0.0017f);
