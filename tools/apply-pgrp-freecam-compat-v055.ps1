@@ -4,7 +4,7 @@ function Patch([string]$path,[string]$before,[string]$after,[string]$label) {
   $p=(Resolve-Path -LiteralPath (Join-Path $Root $path)).Path
   $s=[IO.File]::ReadAllText($p)
   $count=([regex]::Matches($s,[regex]::Escape($before))).Count
-  if($count -ne 1){throw "FreeCam compatibility patch $label: expected one anchor, got $count"}
+  if($count -ne 1){throw "FreeCam compatibility patch ${label}: expected one anchor, got $count"}
   [IO.File]::WriteAllText($p,$s.Replace($before,$after),[Text.UTF8Encoding]::new($false))
   Write-Host "PATCH OK: FreeCam $label"
 }
