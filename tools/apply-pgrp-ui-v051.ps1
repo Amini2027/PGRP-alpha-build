@@ -149,7 +149,8 @@ Patch 'native/gui/dialog.cpp' @'
 '@ 'release movement on any dialog'
 Patch 'native/gui/dialog.cpp' '#include "colored_text.h"' @'
 #include "colored_text.h"
-#include "gui.h"
+// Forward declaration avoids Windows.h min/max macro pollution in this UI file.
+void ReleaseGameMovementKeys();
 '@ 'dialog release declaration'
 Patch 'native/gui/chat.hpp' 'bool IsActive() const { return m_active; }' @'
     bool IsActive() const { return m_active; }
