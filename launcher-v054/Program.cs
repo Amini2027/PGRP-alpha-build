@@ -241,11 +241,11 @@ internal sealed class LauncherWindow : Form
 
     private void AddNode(PointF? near=null)
     {
-        float x = near.HasValue ? near.Value.X + _rng.Next(-45,46) : _rng.Next(15,1000);
-        float y = near.HasValue ? near.Value.Y + _rng.Next(-45,46) : _rng.Next(12,850);
+        float x = near.HasValue ? near.Value.X + _rng.Next(-45,46) : _rng.Next(NavWidth+35,Math.Max(NavWidth+36,_scene.Width-18));
+        float y = near.HasValue ? near.Value.Y + _rng.Next(-45,46) : _rng.Next(HeaderHeight+17,Math.Max(HeaderHeight+18,_scene.Height-16));
         _nodes.Add(new NetPoint {
-            X = Math.Clamp(x / Math.Max(960,_scene?.Width ?? 1200),0.02f,0.98f),
-            Y = Math.Clamp(y / Math.Max(650,_scene?.Height ?? 790),0.05f,0.96f),
+            X = Math.Clamp(x / Math.Max(960,_scene.Width),0.02f,0.98f),
+            Y = Math.Clamp(y / Math.Max(650,_scene.Height),0.05f,0.96f),
             VX = ((float)_rng.NextDouble()-0.5f)*0.0004f,
             VY = ((float)_rng.NextDouble()-0.5f)*0.0004f
         });
@@ -511,6 +511,32 @@ internal sealed class LauncherWindow : Form
         }
     }
 
+    // Network visible INSIDE the hero, even where other cards are opaque.
+    // Draws just 42 pooled nodes and only close neighbor links: inexpensive
+    // for old integrated graphics and completely double buffered.
+    private void DrawHeroNetwork(Graphics g,RectangleF area)
+    {
+        var saved=g.Clip;
+        g.SetClip(area);
+        using var line=new Pen(Color.FromArgb(82,212,164,92),1.05f);
+        using var dot=new SolidBrush(Color.FromArgb(201,232,185,110));
+        for(int i=0;i<_nodes.Count;i++)
+        {
+            var a=_nodes[i];
+            float ax=area.X+a.X*area.Width;
+            float ay=area.Y+a.Y*area.Height;
+            for(int j=i+1;j<_nodes.Count;j++)
+            {
+                var b=_nodes[j];
+                float bx=area.X+b.X*area.Width,by=area.Y+b.Y*area.Height;
+                float dx=ax-bx,dy=ay-by;
+                if(dx*dx+dy*dy<100*100)g.DrawLine(line,ax,ay,bx,by);
+            }
+            g.FillEllipse(dot,ax-2.2f,ay-2.2f,4.4f,4.4f);
+        }
+        g.Clip=saved;
+    }
+
     private void DrawChrome(Graphics g,int w,int h)
     {
         g.FillRectangle(new SolidBrush(Color.FromArgb(232,12,17,24)),0,0,NavWidth,h);
@@ -548,8 +574,10 @@ internal sealed class LauncherWindow : Form
         float x=NavWidth+23, available=w-x-22;
         float heroY=HeaderHeight+25,heroH=Math.Max(250,Math.Min(320,h*0.40f));
         var hero=new RectangleF(x,heroY,available,heroH);
-        Rect(g,hero,Color.FromArgb(229,22,30,41),Color.FromArgb(105,152,125,73),21);
+        Rect(g,hero,Color.FromArgb(240,22,30,41),Color.FromArgb(105,152,125,73),21);
         float visualX=x+available*0.56f;
+        DrawHeroNetwork(g,new RectangleF(visualX+15,heroY+10,
+            hero.Right-visualX-25,heroH-20));
         // Integrated bright geometric motif instead of a pasted stock image:
         // non-animated single-pass 2D vector art; GPU textures/shaders not needed.
         using(var ring=new Pen(Color.FromArgb(126,227,180,102),2.0f))
