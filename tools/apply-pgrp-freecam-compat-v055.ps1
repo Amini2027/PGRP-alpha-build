@@ -20,32 +20,24 @@ Patch 'native/sampraknet_bridge.cpp' @'
         // re-cover the entire world with the authentication screen.
         if (!iSpawned || g_pgrpSpawnVisualHoldMs == 0) return false;
 '@ 'remove spectator overlay collision'
-# This client previously restored camera only on initial login spawn.
-# FreeCam exit begins with iSpawned=1: restore camera explicitly to prevent
-# remaining in a fixed/attached camera mode when the server releases spectator.
+# The PGRP spawn patch replaces the original ScrTogglePlayerSpectating
+# branch with an endpoint-aware one. Apply the restore to that exact branch.
 Patch 'native/sampraknet_bridge.cpp' @'
-    if (bIsSpectating && !bToggle && !iSpawned)
+    if (g_pgrpEndpoint)
     {
-        sampSpawn();
-        iSpawned = 1;
-    }
-
-    bIsSpectating = bToggle;
+        g_pgrpReleasedSpectator = (bToggle == 0);
 '@ @'
-    if (bIsSpectating && !bToggle)
+    if (g_pgrpEndpoint)
     {
-        if (!iSpawned)
-        {
-            sampSpawn();
-            iSpawned = 1;
-        }
-        else
+        // The server may release an already-spawned admin from FreeCam.
+        // The generic initial-spawn code cannot run again; restore local
+        // camera mode without rewriting the player's persisted location.
+        if (bIsSpectating && !bToggle && iSpawned)
         {
             gta::sa::CameraRestore();
-            Log("[PGRP FreeCam] spectator released; following physical player");
+            Log("[PGRP FreeCam] spectator released; GTA camera restored");
         }
-    }
-    bIsSpectating = bToggle;
-'@ 'restore third-person GTA camera on freecam exit'
+        g_pgrpReleasedSpectator = (bToggle == 0);
+'@ 'restore GTA camera on post-login freecam exit'
 Write-Host 'PGRP v0.5.5 FreeCam: authenticated overlay and spectator exit fixed.'
 Write-Host 'NOTE: Full object attach/streaming and spectator key sync are still absent in upstream.'
