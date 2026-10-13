@@ -36,12 +36,12 @@ Patch 'native/sampraknet_bridge.cpp' @'
         return elapsed > 800 && (g_pgrpServerWorldReady || elapsed > 8000);
 '@ 'keep login mask until authoritative stream completes'
 Patch 'native/sampraknet_bridge.cpp' @'
-        g_pgrpSpawnVisualHoldMs = GetTickCount();
-        s_spawnStage = SpawnStage::Done;
+            g_pgrpSpawnVisualHoldMs = GetTickCount();
+            s_spawnStage = SpawnStage::Done;
 '@ @'
-        g_pgrpSpawnVisualHoldMs = GetTickCount();
-        g_pgrpServerWorldReady = false;
-        s_spawnStage = SpawnStage::Done;
+            g_pgrpSpawnVisualHoldMs = GetTickCount();
+            g_pgrpServerWorldReady = false;
+            s_spawnStage = SpawnStage::Done;
 '@ 'spawn transition'
 Patch 'native/sampraknet_bridge.cpp' @'
         st.active=true;
