@@ -313,10 +313,10 @@ struct App {
   line(x+left,y+22,x+left,y+heroH-22,rgba(236,189,115,.32f));
   txt(L"YOUR WORLD  /  YOUR STORY",box(x+32,y+16,left-40,30),
       englishTiny.Get(),rgba(229,182,99));
-  txt(L"به قلمرو پالادین خوش آمدی",box(x+28,y+62,left-40,59),
+  txt(L"به قلمرو پالادین خوش آمدی",box(x+28,y+55,left-40,52),
       persianLarge.Get(),rgba(246,241,233));
   txt(L"ماجراجویی خودت را در دنیایی اختصاصی آغاز کن",
-      box(x+30,y+130,left-44,36),persian.Get(),rgba(179,195,205));
+      box(x+30,y+109,left-44,34),persian.Get(),rgba(179,195,205));
   const float playW=std::max(194.f,left*.49f);
   action(Action::Play,L"▶  ورود به سرور",box(x+30,y+heroH-72,playW,47),true);
   action(Action::Settings,L"تنظیمات بازی",
