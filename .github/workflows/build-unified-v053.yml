@@ -127,8 +127,8 @@ jobs:
           [IO.File]::WriteAllText((Join-Path $src 'models/gta3.img'),'synthetic CI only; no Rockstar game included')
           $hashBefore=(Get-FileHash (Join-Path $src 'gta_sa.exe') -Algorithm SHA256).Hash
           $marker=Join-Path $env:TEMP 'PGRP_v053_UI_Action_Smoke.ok'
-          $error=Join-Path $env:TEMP 'PGRP_v053_UI_Action_Smoke.error'
-          Remove-Item -LiteralPath $marker,$error -Force -ErrorAction SilentlyContinue
+          $smokeError=Join-Path $env:TEMP 'PGRP_v053_UI_Action_Smoke.error'
+          Remove-Item -LiteralPath $marker,$smokeError -Force -ErrorAction SilentlyContinue
           $exe=(Resolve-Path './PGRP_v0.5.3_All_in_One_Windows_Setup.exe').Path
           $p=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"' + (Join-Path $src 'gta_sa.exe') + '"'),'-InstallRoot',('"'+$dest+'"')) -PassThru
           if(-not $p.WaitForExit(120000)){
@@ -136,7 +136,7 @@ jobs:
             throw 'Real installer click test timed out'
           }
           if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
-            Get-Content -LiteralPath $error -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
             Get-Content (Join-Path $env:TEMP 'PGRP_v053_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
             throw 'Install GUI actual action smoke failed'
           }
