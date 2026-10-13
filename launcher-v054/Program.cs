@@ -592,7 +592,7 @@ internal sealed class LauncherWindow : Form
         using(var ring=new Pen(Color.FromArgb(126,227,180,102),2.0f))
         using(var ring2=new Pen(Color.FromArgb(61,227,180,102),1.2f))
         {
-            var cx=visualX+(available*0.44f)*0.49f,cy=heroY+heroH*0.52f;
+            float cx=visualX+(available*0.44f)*0.49f,cy=heroY+heroH*0.52f;
             float r=Math.Min(heroH*0.37f,available*0.17f);
             g.DrawEllipse(ring,cx-r,cy-r,r*2,r*2);
             g.DrawEllipse(ring2,cx-r-23,cy-r-23,(r+23)*2,(r+23)*2);
