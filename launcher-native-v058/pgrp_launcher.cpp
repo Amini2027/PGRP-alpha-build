@@ -115,7 +115,7 @@ struct App {
   if(valid(gameExe))return;
   wchar_t user[MAX_PATH]{};
   if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,user)))return;
-  for(auto version:{L"0.5.8",L"0.5.8",L"0.5.5",L"0.5.4",L"0.5.3",L"0.5.2",L"0.5.1"}){
+  for(auto version:{L"0.5.8",L"0.5.7",L"0.5.6",L"0.5.5",L"0.5.4",L"0.5.3",L"0.5.2",L"0.5.1"}){
    std::wstring root=std::wstring(user)+L"\\PaladinGuard\\PGRP_Alpha_v"+version;
    for(auto candidate:{root+L"\\gta_sa.exe",root+L"\\GTA_San_Andreas\\gta_sa.exe"}){
     if(valid(candidate)){gameExe=candidate;return;}
@@ -284,7 +284,7 @@ struct App {
   fill(box(0,0,W,TOP),rgba(13,19,28,.82f));
   fill(box(0,0,W,3),rgba(228,182,102));
   txt(L"PALADIN GUARD ROLEPLAY",box(28,20,550,39),latin.Get(),rgba(234,182,94));
-  txt(L"PGRP  /  VERSION 0.5.8",box(W-254,25,225,30),englishTiny.Get(),rgba(151,178,188));
+  txt(L"CLIENT  /  VERSION 0.5.8",box(W-254,25,225,30),englishTiny.Get(),rgba(151,178,188));
   txt(L"ROLEPLAY",box(22,112,188,43),latin.Get(),rgba(236,184,100));
   txt(L"PALADIN GUARD",box(22,163,190,23),englishTiny.Get(),rgba(240,237,231));
   txt(L"IRAN  /  ONLINE WORLD",box(22,192,185,28),englishTiny.Get(),rgba(162,185,195));
@@ -369,7 +369,7 @@ struct App {
   }else if(page==Page::Help){
    txt(L"راهنمای ورود",box(x,y,w,65),persianTitle.Get(),rgba(241,239,231));
    const wchar_t* steps[]={
-    L"۱. بازی GTA San Andreas را از ستاپ اختصاصی PGRP نصب کن.",
+    L"۱. بازی GTA San Andreas را با ستاپ اختصاصی Paladin Guard نصب کن.",
     L"۲. نام شخصیت را در تنظیمات وارد کن؛ مانند Ali_McClellan.",
     L"۳. ورود به سرور را بزن و احراز هویت را کامل کن.",
     L"۴. محل ورود و خروج توسط گیم‌مود سرور ذخیره می‌شود."};
@@ -424,8 +424,8 @@ struct App {
    // Stable low-amplitude drift never damps to zero. Mouse repulsion adds
    // temporary velocity, then nodes return gradually to autonomous motion.
    const size_t k=static_cast<size_t>(&n-&nodes[0]);
-   const float desiredX=std::sin(float(k)*1.713f+float(tick)*.0009f)*.000115f;
-   const float desiredY=std::cos(float(k)*1.297f+float(tick)*.00075f)*.000097f;
+   const float desiredX=std::sin(float(k)*1.713f+float(tick)*.0009f)*.000270f;
+   const float desiredY=std::cos(float(k)*1.297f+float(tick)*.00075f)*.000225f;
    n.vx=std::clamp(n.vx*.963f+desiredX*.037f,-.00115f,.00115f);
    n.vy=std::clamp(n.vy*.963f+desiredY*.037f,-.00115f,.00115f);
    n.x+=n.vx;n.y+=n.vy;
@@ -443,7 +443,7 @@ struct App {
   ofn.lpstrFilter=L"GTA San Andreas (gta_sa.exe)\0gta_sa.exe\0\0";
   ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
   if(!GetOpenFileNameW(&ofn))return;
-  if(!valid(out)){MessageBoxW(hwnd,L"فایل GTA باید در پوشه نصب‌شده PGRP کنار opensamp.exe و Client.Native.dll باشد.",
+  if(!valid(out)){MessageBoxW(hwnd,L"فایل GTA باید کنار opensamp.exe و Client.Native.dll در پوشه نصب باشد.",
                                L"مسیر نامعتبر",MB_ICONWARNING);return;}
   gameExe=out;SetWindowTextW(gtaPath,gameExe.c_str());save();InvalidateRect(hwnd,nullptr,FALSE);
  }
@@ -455,9 +455,9 @@ struct App {
                               (c>=L'0'&&c<=L'9')||c==L'_'))ok=false;
   if(!ok){page=Page::Settings;layout();
     MessageBoxW(hwnd,L"نام شخصیت باید به شکل Name_Surname و حداکثر ۲۴ کاراکتر باشد.",
-      L"PGRP Nickname",MB_ICONWARNING);return;}
+      L"Paladin Guard Roleplay",MB_ICONWARNING);return;}
   if(!valid(gameExe)){page=Page::Settings;layout();
-    MessageBoxW(hwnd,L"ابتدا مسیر GTA در پوشه نصب‌شده PGRP را مشخص کن.",L"PGRP",MB_ICONWARNING);return;}
+    MessageBoxW(hwnd,L"ابتدا مسیر GTA در پوشه نصب‌شده بازی را مشخص کن.",L"Paladin Guard Roleplay",MB_ICONWARNING);return;}
   save();
   std::wstring root=parent(gameExe),exe=root+L"\\opensamp.exe";
   // Scoped environment hand-off: restore previous environment after CreateProcess.
@@ -469,7 +469,7 @@ struct App {
   if(n>0&&n<80)SetEnvironmentVariableW(L"PGRP_AUTOCONNECT_NICK",old);
   else SetEnvironmentVariableW(L"PGRP_AUTOCONNECT_NICK",nullptr);
   if(!started){MessageBoxW(hwnd,L"بازی اجرا نشد؛ فایل‌ها یا مجوز اجرای opensamp.exe را بررسی کن.",
-                                L"PGRP Launch Error",MB_ICONERROR);return;}
+                                L"Paladin Guard Launch Error",MB_ICONERROR);return;}
   CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
   DestroyWindow(hwnd); // Give RAM/GPU back to GTA after launching.
  }
@@ -485,7 +485,7 @@ struct App {
     case Action::Refresh:query();break;
     case Action::LowSpec:lowSpec=!lowSpec;KillTimer(hwnd,ANIM_TIMER);
        SetTimer(hwnd,ANIM_TIMER,lowSpec?67:33,nullptr);save();break;
-    case Action::Save:save();MessageBoxW(hwnd,L"تنظیمات ذخیره شد.",L"PGRP",MB_OK);break;
+    case Action::Save:save();MessageBoxW(hwnd,L"تنظیمات ذخیره شد.",L"Paladin Guard",MB_OK);break;
     default:break;
    }
    layout();return;
