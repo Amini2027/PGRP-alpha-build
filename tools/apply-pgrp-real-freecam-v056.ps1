@@ -67,6 +67,9 @@ namespace pgrpfc {
     static void Tick() {
         if(!st.active || !iAreWeConnected || !g_pgrpEndpoint) return;
         const DWORD now=GetTickCount();
+        // Native camera SCM update <=30 FPS; don't dispatch 120+ opcodes/s
+        // on PCs with low CPU or integrated graphics.
+        if(now-st.lastTick < 32) return;
         float dt=float(now-st.lastTick)*0.001f;
         st.lastTick=now;
         if(dt<0.0f)dt=0.0f;
