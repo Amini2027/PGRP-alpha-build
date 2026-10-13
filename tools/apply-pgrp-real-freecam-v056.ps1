@@ -27,7 +27,7 @@ void ClientMessage(RPCParameters* rpcParams)
 // RakNet ServerCommand RPCs, so no custom network/plugin dependency exists.
 namespace pgrpfc {
     struct State {
-        bool active=false;
+        bool active=false,exitPending=false;
         float x=0,y=0,z=0,yaw=0,pitch=0;
         DWORD lastTick=0,lastReport=0,lastStream=0;
         float streamX=0,streamY=0;
@@ -76,7 +76,7 @@ namespace pgrpfc {
         if(dt>0.055f)dt=0.055f; // no camera warp during window stalls
         const bool focus=(g_hwnd != nullptr && GetForegroundWindow()==g_hwnd);
         const bool modal=g_chat.IsActive() || opensamp::gui::Dialog::Get().IsActive();
-        if(focus&&!modal) {
+        if(focus&&!modal&&!st.exitPending) {
             RECT rect{};
             if(GetClientRect(g_hwnd,&rect)) {
                 POINT origin{(rect.right-rect.left)/2,(rect.bottom-rect.top)/2};
@@ -130,7 +130,7 @@ namespace pgrpfc {
         gta::sa::scm::push_float(st.z+std::sin(st.pitch)*30.f);
         gta::sa::scm::push_int(2);
         gta::sa::scm::exec();
-        if(now-st.lastReport >= 300) Report();
+        if(!st.exitPending && now-st.lastReport >= 300) Report();
         // Stream surrounding map only after appreciable travel and rate-limit
         // the expensive native streaming refresh to help low-end PCs.
         if(now-st.lastStream>2300){
@@ -187,7 +187,10 @@ Patch 'native/sampraknet_bridge.cpp' @'
         if(pgrpfc::st.active &&
             (_stricmp(utf8_command,"/exitfreecam")==0)){
             pgrpfc::Report();
-            pgrpfc::End();
+            // Freeze camera at the exact requested exit point until the
+            // server confirms spectator release. Avoid briefly exposing
+            // the old player coordinates before server teleport arrives.
+            pgrpfc::st.exitPending=true;
         }
         // Server expects CP-1251 — same convention as chat (see sendChat).
 '@ 'deliver final camera coords before /exitfreecam'
