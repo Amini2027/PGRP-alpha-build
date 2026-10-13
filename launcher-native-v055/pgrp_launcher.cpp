@@ -4,6 +4,8 @@
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <windowsx.h>
 #include <d2d1.h>
@@ -12,8 +14,6 @@
 #include <wrl/client.h>
 #include <shlobj.h>
 #include <commdlg.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -322,6 +322,7 @@ struct App {
   if(hr==D2DERR_RECREATE_TARGET){pen.Reset();target.Reset();}
  }
  void layout(){
+  if(!hwnd || !nickname || !gtaPath)return;
   RECT r{};GetClientRect(hwnd,&r);W=float(r.right);H=float(r.bottom);
   bool show=page==Page::Settings;
   float x=NAV+32,y=TOP+30;
