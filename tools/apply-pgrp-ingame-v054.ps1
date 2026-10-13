@@ -54,6 +54,7 @@ Patch 'native/sampraknet_bridge.cpp' @'
         return (GetTickCount() - g_pgrpSpawnVisualHoldMs) >= 1800;
     }
 '@ 'server-authenticated visual-ready getter'
+Patch 'native/gui/imgui_manager.cpp' '#include <imgui.h>' "#include <imgui.h>`n#include <cfloat>" 'include FLT_MAX safely'
 Patch 'native/gui/imgui_manager.cpp' @'
     g_chat.Draw();
     opensamp::gui::Dialog::Get().Draw();
