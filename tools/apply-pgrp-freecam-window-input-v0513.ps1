@@ -62,6 +62,12 @@ Patch 'native/gui/imgui_manager.cpp' @'
         // In PGRP the native TAB scoreboard is disabled for ordinary players.
 '@ 'route flight keys separately from ped movement'
 Patch 'native/sampraknet_bridge.cpp' @'
+#include "gui/dialog.hpp"
+'@ @'
+#include "gui/dialog.hpp"
+#include "gui/gui.h"
+'@ 'declare ReleaseGameMovementKeys correctly'
+Patch 'native/sampraknet_bridge.cpp' @'
         st.active=true;
         if(auto* ped=gta::sa::GetLocalPlayerPed())
 '@ @'
