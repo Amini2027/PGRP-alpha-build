@@ -9,7 +9,7 @@ function Patch([string]$path,[string]$before,[string]$after,[string]$label){
  Write-Host "PGRP v0512 PATCH OK: $label"
 }
 Patch 'native/game/game.h' @'
-        void* m_rwObject;     // +0x18  RpClump*
+        void* m_rwObject;    // +0x18  RpClump*
 '@ @'
         void* m_rwObject;     // +0x18  RpClump*
         // CPlaceable uses its matrix world position once a matrix exists,
