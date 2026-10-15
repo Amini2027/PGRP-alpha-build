@@ -96,6 +96,9 @@ Patch 'native/sampraknet_bridge.cpp' @'
 Patch 'native/sampraknet_bridge.cpp' @'
         // Post-camera-process renderer is the only camera writer.
         // Both dispatches are from the game thread; no background memory hooks.
+        // Unlike TakeControlNoEntity, SetCamPositionForFixedMode changes
+        // render-space camera coordinates instead of merely resetting mode.
+        gta::sa::CameraSetFixedModePosition(st.x,st.y,st.z);
         gta::sa::scm::reset(0x015F);
         gta::sa::scm::push_float(st.x);
         gta::sa::scm::push_float(st.y);
@@ -111,27 +114,10 @@ Patch 'native/sampraknet_bridge.cpp' @'
         gta::sa::scm::push_int(2);
         gta::sa::scm::exec();
 '@ @'
-        // Do NOT send per-tick SCM camera commands here. This was fighting
-        // CCamera::Process and the dedicated render hook, causing jitter,
-        // flips and camera rewrites in different coordinate conventions.
-'@ 'remove competing per-tick SCM camera writer'
-Patch 'native/sampraknet_bridge.cpp' @'
-        // Unlike TakeControlNoEntity, SetCamPositionForFixedMode changes
-        // render-space camera coordinates instead of merely resetting mode.
-        gta::sa::CameraSetFixedModePosition(st.x,st.y,st.z);
-        gta::sa::scm::reset(0x015F);
-        gta::sa::scm::push_float(st.x);
-        gta::sa::scm::push_float(st.y);
-        gta::sa::scm::push_float(st.z);
-        gta::sa::scm::push_float(0.f);
-        gta::sa::scm::push_float(0.f);
-        gta::sa::scm::push_float(0.f);
-        gta::sa::scm::exec();
-        gta::sa::scm::reset(0x0160);
-'@ @'
-        // Render hook has exclusive ownership of flight camera position and
-        // orientation. Avoid resetting fixed mode every network iteration.
-'@ 'remove duplicate fixed-camera reset each tick'
+        // Flight controls affect only simulation state here. The sole writer
+        // of the GTA camera is the post-CCamera::Process render override.
+        // Do not send SCM 015F/0160 or reset fixed camera mode every frame.
+'@ 'remove both competing SCM and fixed-camera writers'
 Patch 'native/sampraknet_bridge.cpp' @'
         const auto& s=pgrpfc::st;
         if(!pgrpfc::IsFiniteWorld(s.x,s.y,s.z))return;
