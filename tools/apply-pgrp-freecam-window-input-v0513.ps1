@@ -125,6 +125,11 @@ Patch 'native/sampraknet_bridge.cpp' @'
     void PgrpFreeCamAfterCameraProcess(){
         if(!pgrpfc::st.active || !g_pgrpEndpoint || !iAreWeConnected)
             return;
+        // Camera processing happens closer to rendering than the network
+        // tick. Suppress local ped visibility here as well so an entity
+        // visibility reset by GTA cannot expose the physical player model.
+        if(auto* localPed=gta::sa::GetLocalPlayerPed())
+            localPed->bIsVisible=false;
         static unsigned renderTick=0;
         if((++renderTick % 120)==0)
             Log("[PGRP FC v0513] post-camera hook rendering frame %u",renderTick);
