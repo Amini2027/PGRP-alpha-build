@@ -78,8 +78,8 @@ Patch 'native/sampraknet_bridge.cpp' @'
         if(now-st.lastDiagnostic>=1000)
         {
             st.lastDiagnostic=now;
-            Log("[PGRP FC v0511] camera=(%.2f %.2f %.2f) yaw=%.2f pitch=%.2f focus=%u spectator=%u",
-                st.x,st.y,st.z,st.yaw,st.pitch,unsigned(focus),unsigned(bIsSpectating));
+            Log("[PGRP FC v0511] camera=(%.2f %.2f %.2f) yaw=%.2f pitch=%.2f focus=%u",
+                st.x,st.y,st.z,st.yaw,st.pitch,unsigned(focus));
         }
         if(!st.exitPending && now-st.lastReport >= 300) Report();
 '@ 'log real camera movement each second'
