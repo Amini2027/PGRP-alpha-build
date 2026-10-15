@@ -171,7 +171,7 @@ static void __fastcall hkCameraProcess(void* camera,void*){
     opensamp::bridge::PgrpFreeCamAfterCameraProcess();
 }
 static bool Install_CameraProcess_Hook(){
-    constexpr auto addr=reinterpret_cast<void*>(0x52B730);
+    void* addr=reinterpret_cast<void*>(0x52B730);
     if(MH_CreateHook(addr,&hkCameraProcess,
          reinterpret_cast<void**>(&oCameraProcess))!=MH_OK)return false;
     return MH_EnableHook(addr)==MH_OK;
