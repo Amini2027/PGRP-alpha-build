@@ -130,9 +130,9 @@ jobs:
           Write-Host 'PASS: horizon lock / F11 full pitch toggle / mouse damping / throttled logs'
           $src=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
           if($src.Contains('st.pitch=(std::max)(-1.20f')){throw 'Pitch still restricted to 69 degrees'}
-          if(-not $src.Contains('1.553343f')){throw 'Near-90-degree pitch limit missing'}
+          if(-not $src.Contains('s.fullVertical')){throw 'Dual camera pitch mode missing'}
           if(-not $src.Contains('QueryPerformanceCounter(&counter)')){throw 'High precision camera frame clock missing'}
-          if(-not $src.Contains('s.renderYaw=s.yaw;')){throw 'Mouse still delayed by secondary look smoothing'}
+          if(-not $src.Contains('const float rotationAlpha=1.f-std::exp(-dt*85.f)')){throw 'Short mouse stabilization missing'}
           if(-not $src.Contains('pgrpfc::rawX.exchange(0,std::memory_order_relaxed)')){throw 'Mouse not read at render frame rate'}
           if(-not $src.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'W key direction regressed'}
           Write-Host 'PASS: full 360 yaw, +/-89 pitch, sub-ms render clock and native input'
