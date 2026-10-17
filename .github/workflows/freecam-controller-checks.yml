@@ -1,0 +1,38 @@
+name: PGRP FreeCam controller checks (independent module)
+on:
+  push:
+    branches: [feature/freecam-quaternion-v0517]
+    paths:
+      - experiments/freecam-v0517/**
+      - .github/workflows/freecam-controller-checks.yml
+  pull_request:
+    paths:
+      - experiments/freecam-v0517/**
+      - .github/workflows/freecam-controller-checks.yml
+permissions:
+  contents: read
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run FreeCam maths tests
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic experiments/freecam-v0517/tests/test_freecam.cpp -o /tmp/pgrp-freecam-tests
+          /tmp/pgrp-freecam-tests
+  windows-x86-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run 32-bit MSVC FreeCam tests
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cl /nologo /std:c++17 /EHsc /W4 /WX /Fe:"%RUNNER_TEMP%\freecam-test.exe" experiments\freecam-v0517\tests\test_freecam.cpp
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\freecam-test.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /WX /Fe:"%RUNNER_TEMP%\freecam-win32-test.exe" experiments\freecam-v0517\tests\test_win32_input.cpp user32.lib
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\freecam-win32-test.exe"
+          if errorlevel 1 exit /b 1
