@@ -141,14 +141,14 @@ jobs:
           if(-not $src.Contains('QueryPerformanceCounter(&counter)')){throw 'High precision camera frame clock missing'}
           if(-not $src.Contains('const float rotationAlpha=1.f-std::exp(-dt*85.f)')){throw 'Short mouse stabilization missing'}
           if(-not $src.Contains('pgrpfc::rawX.exchange(0,std::memory_order_relaxed)')){throw 'Mouse not read at render frame rate'}
-          if(-not $src.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'W key direction regressed'}
+          if(-not $src.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'W key direction regressed'}
           Write-Host 'PASS: full 360 yaw, +/-89 pitch, sub-ms render clock and native input'
 
           $bridge=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
           $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
-          if($bridge.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'Bad W forward: still flies backward'}
-          if(-not $bridge.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'Corrected W forward not built'}
-          if(-not $bridge.Contains('if(back){vx+=fx;vy+=fy;}')){throw 'Corrected S backward not built'}
+          if($bridge.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'Bad W forward: still flies backward'}
+          if(-not $bridge.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'Corrected W forward not built'}
+          if(-not $bridge.Contains('if(back){vx-=fx;vy-=fy;}')){throw 'Corrected S backward not built'}
           $initStart=$gui.IndexOf('void im_gui_init(')
           $initEnd=$gui.IndexOf('static void im_gui_shutdown()', $initStart)
           if($initStart -lt 0 -or $initEnd -lt 0){throw 'GUI lifecycle not found'}
