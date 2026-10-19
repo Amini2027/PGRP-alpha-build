@@ -67,8 +67,20 @@ Patch 'native/sampraknet_bridge.cpp' @'
 '@ @'
                 Log("[PGRP FC v0519] F11 camera mode: %s",
                     s.fullVertical?"FULL_VERTICAL_360":"UPRIGHT_360_YAW");
-                g_chat.PushLineAsync(s.fullVertical
-                    ? "[PGRP FreeCam] FULL VERTICAL 360: upside-down world after 90 deg is expected. F11 for upright."
-                    : "[PGRP FreeCam] UPRIGHT: 360 yaw, +/-89 pitch, no upside-down world. F11 for vertical loops.");
+                pgrpfc::ShowMode(s.fullVertical);
 '@ 'make F11 mode discoverable in the game HUD'
+
+# An SEH (__try) camera hook cannot allocate a temporary std::string or a
+# destructor-enabled object in MSVC (/EHsc): isolate UI work in this helper.
+Patch 'native/sampraknet_bridge.cpp' @'
+    static void Begin(float x,float y,float z) {
+'@ @'
+    static void ShowMode(bool spinning) {
+        g_chat.PushLineAsync(spinning
+            ? std::string("[PGRP FreeCam] FULL VERTICAL 360: horizon inverts naturally past 90 deg. F11 = upright.")
+            : std::string("[PGRP FreeCam] UPRIGHT: 360 yaw, +/-89 pitch. F11 = vertical loops."));
+    }
+    static void Begin(float x,float y,float z) {
+'@ 'isolate chat notification from SEH camera hook'
+
 Write-Host 'PGRP v0.5.19: corrected W/S, upright +/-89deg pitch, no raw-mouse saturation, explicit vertical-spin toggle.'
