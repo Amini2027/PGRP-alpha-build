@@ -128,7 +128,7 @@ jobs:
           & ./tools/apply-pgrp-freecam-controls-v0519.ps1 -Root upstream
           & ./tools/apply-pgrp-freecam-single-owner-v0520.ps1 -Root upstream
           $b=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
-          if(-not $b.Contains('F11 camera mode:')){throw 'Full-spin toggle not compiled'}
+          if(-not $b.Contains('[PGRP FC v0520] Camera mode:')){throw 'Full-spin reset and safe-mode toggle not compiled'}
           if(-not $b.Contains('s.fullVertical')){throw 'Full vertical pitch path missing'}
           if(-not $b.Contains('rotationAlpha=1.f-std::exp(-dt*85.f)')){throw 'Short rotation filter missing'}
           if($b.Contains('renderTick % 120)')){throw 'Excessive camera hook logging persists'}
