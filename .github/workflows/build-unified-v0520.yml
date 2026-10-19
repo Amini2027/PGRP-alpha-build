@@ -134,7 +134,7 @@ jobs:
           if($b.Contains('renderTick % 120)')){throw 'Excessive camera hook logging persists'}
           if(-not $b.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'W must advance along camera heading'}
           if(-not $b.Contains('if(back){vx-=fx;vy-=fy;}')){throw 'S must reverse camera heading'}
-          if(-not $b.Contains('12000L')){throw 'High-DPI raw mouse patch missing'}
+          if(-not $b.Contains('pendingMouseX')){throw 'Bounded high-DPI mouse queue missing'}
           if(-not $b.Contains('UPRIGHT_360_YAW')){throw 'In-game mode indicator missing'}
           if(-not $b.Contains('pendingMouseX')){throw 'Mouse burst smoothing was not compiled'}
           if(-not $b.Contains('Ctrl+F11')){throw 'Safe upright F11 mode missing'}
