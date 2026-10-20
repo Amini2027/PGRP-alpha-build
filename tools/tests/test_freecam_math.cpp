@@ -1,5 +1,7 @@
 #include "../include/pgrp_freecam_math.h"
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <cmath>
 #include <initializer_list>
 #include <iostream>
@@ -7,6 +9,16 @@ using namespace pgrpfc_math;
 static bool near(float a,float b,float t=0.0004f){return std::fabs(a-b)<t;}
 static float dot(Vec3 a,Vec3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}
 static Vec3 cross(Vec3 a,Vec3 b){return {a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x};}
+struct GameMatrix {
+  float right[3]; std::uint32_t flags;
+  float forward[3]; std::uint32_t pad1;
+  float up[3]; std::uint32_t pad2;
+  float pos[3];
+};
+static_assert(offsetof(GameMatrix,right)==0x00,"GTA CMatrix right offset");
+static_assert(offsetof(GameMatrix,forward)==0x10,"GTA CMatrix forward offset");
+static_assert(offsetof(GameMatrix,up)==0x20,"GTA CMatrix up offset");
+static_assert(offsetof(GameMatrix,pos)==0x30,"GTA CMatrix position offset");
 int main(){
   const float pi=3.14159265358979323846f;
   for(float yaw:{0.f,pi/2,pi,2*pi,6*pi})
@@ -32,6 +44,14 @@ int main(){
   // Mouse up -> negative dy -> positive pitch -> upward flight.
   const auto rotatedUp=BuildBasis(pi/2,-(-100.f)*sensitivity);
   assert(rotatedUp.forward.z>0.f);
+  GameMatrix matrix{};
+  matrix.right[0]=canonical.right.x;matrix.right[1]=canonical.right.y;matrix.right[2]=canonical.right.z;
+  matrix.forward[0]=canonical.forward.x;matrix.forward[1]=canonical.forward.y;matrix.forward[2]=canonical.forward.z;
+  matrix.up[0]=canonical.up.x;matrix.up[1]=canonical.up.y;matrix.up[2]=canonical.up.z;
+  assert(near(matrix.right[0],1)&&near(matrix.forward[1],1)&&near(matrix.up[2],1));
+  // This specifically fails the old v0.5.21 forward/up swapped layout.
+  assert(dot(Vec3{matrix.forward[0],matrix.forward[1],matrix.forward[2]},canonical.forward)>0.9999f);
+  assert(dot(Vec3{matrix.up[0],matrix.up[1],matrix.up[2]},canonical.up)>0.9999f);
   auto ascend=FlightDirection(0,pi/4,1,0,0);
   auto descend=FlightDirection(0,-pi/4,1,0,0);
   assert(ascend.z>0.7f && descend.z < -0.7f);
