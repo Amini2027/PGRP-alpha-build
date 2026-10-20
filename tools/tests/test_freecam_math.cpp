@@ -6,7 +6,7 @@
 using namespace pgrpfc_math;
 static bool near(float a,float b,float t=0.0004f){return std::fabs(a-b)<t;}
 static float dot(Vec3 a,Vec3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}
-static Vec3 cross(Vec3 a,Vec3 b){return {a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.y};}
+static Vec3 cross(Vec3 a,Vec3 b){return {a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x};}
 int main(){
   const float pi=3.14159265358979323846f;
   for(float yaw:{0.f,pi/2,pi,2*pi,6*pi})
