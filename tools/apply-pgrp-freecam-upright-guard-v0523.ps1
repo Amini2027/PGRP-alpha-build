@@ -113,10 +113,15 @@ Patch 'native/sampraknet_bridge.cpp' @'
 '@ 'clear raw debug values when input is not active'
 # Diagnostic marker allows proof of *which DLL* GTA actually loaded.
 Patch 'native/sampraknet_bridge.cpp' @'
-[PGRP FC v0522] BUILD=matrixfix-20261020
+                Log("[PGRP FC v0522] BUILD=matrixfix-20261020 DLL=%s",dllPath);
 '@ @'
-[PGRP FC v0523] BUILD=upright-rawguard-20261020
-'@ 'identify exact DLL build in log'
+                Log("[PGRP FC v0523] BUILD=upright-rawguard-20261020 DLL=%s",dllPath);
+'@ 'identify loaded DLL absolute path'
+Patch 'native/sampraknet_bridge.cpp' @'
+                Log("[PGRP FC v0522] BUILD=matrixfix-20261020 DLL_PATH_UNAVAILABLE");
+'@ @'
+                Log("[PGRP FC v0523] BUILD=upright-rawguard-20261020 DLL_PATH_UNAVAILABLE");
+'@ 'identify diagnostic fallback when DLL path unavailable'
 # Add runtime telemetry at 2 Hz rather than the old 1 sample per 240 frames.
 Patch 'native/sampraknet_bridge.cpp' @'
         if((matrixCheckCount % 240)==0) {
