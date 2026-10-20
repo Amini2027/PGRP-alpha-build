@@ -136,8 +136,8 @@ jobs:
           if(-not $b.Contains('s.fullVertical')){throw 'Full vertical pitch path missing'}
           if(-not $b.Contains('s.renderYaw=s.yaw;')){throw 'Second camera rotation filter remains'}
           if($b.Contains('renderTick % 120)')){throw 'Excessive camera hook logging persists'}
-          if(-not $b.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'W must advance along camera heading'}
-          if(-not $b.Contains('if(back){vx-=fx;vy-=fy;}')){throw 'S must reverse camera heading'}
+          if(-not $b.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'W/S signed flight input missing'}
+          if(-not $b.Contains('const auto dir=pgrpfc_math::FlightDirection(')){throw 'W/S not mapped to 3D camera basis'}
           if($b.Contains('pendingMouseX')){throw 'Deferred mouse backlog remains'}
           if(-not $b.Contains('UPRIGHT_360_YAW')){throw 'In-game mode indicator missing'}
           if(-not $b.Contains('pgrpfc_math::FlightDirection(')){throw 'Camera-relative movement not compiled'}
@@ -151,25 +151,25 @@ jobs:
           if(-not $src.Contains('QueryPerformanceCounter(&counter)')){throw 'High precision camera frame clock missing'}
           if(-not $src.Contains('pgrpfc_math::BuildBasis(')){throw 'Shared view basis not used in rendering'}
           if(-not $src.Contains('pgrpfc::rawX.exchange(0,std::memory_order_relaxed)')){throw 'Mouse not read at render frame rate'}
-          if(-not $src.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'W key direction regressed'}
+          if(-not $src.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'W/S flight axis regressed'}
           Write-Host 'PASS: full 360 yaw, +/-89 pitch, sub-ms render clock and native input'
 
           $bridge=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
           $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
-          if($bridge.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'Bad W forward: still flies backward'}
-          if(-not $bridge.Contains('if(ahead){vx+=fx;vy+=fy;}')){throw 'Corrected W forward not built'}
-          if(-not $bridge.Contains('if(back){vx-=fx;vy-=fy;}')){throw 'Corrected S backward not built'}
+          if($bridge.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'Old inverted ground-plane W logic still exists'}
+          if(-not $bridge.Contains('pgrpfc_math::FlightDirection(')){throw '3D flight movement not built'}
+          if(-not $bridge.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'Reverse flight missing'}
           $initStart=$gui.IndexOf('void im_gui_init(')
           $initEnd=$gui.IndexOf('static void im_gui_shutdown()', $initStart)
           if($initStart -lt 0 -or $initEnd -lt 0){throw 'GUI lifecycle not found'}
           if($gui.Substring($initStart,$initEnd-$initStart).Contains('RegisterRawInputDevices')){throw 'GTA normal mouse still hijacked at startup'}
           if(-not $gui.Contains('PgrpRestoreNormalMouse();')){throw 'Normal game mouse restoration missing'}
           if(-not $gui.Contains('PgrpUpdateFlightMouse();')){throw 'FreeCam-only mouse mode missing'}
-          Write-Host 'PASS: W forward/S backward, mouse ownership scoped to FreeCam; no global Raw Input startup'
+          Write-Host 'PASS: W/S true pitched flight + single raw mouse consumer, no global hijack'
           $patched=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
           $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
           if($patched.Contains('SetCursorPos(origin.x,origin.y)')){throw 'Legacy jittery mouse-recenter loop remains'}
-          if(-not $patched.Contains('const float fx=std::cos(st.yaw),fy=std::sin(st.yaw)')){throw 'Level-plane flight missing'}
+          if(-not $patched.Contains('pgrpfc_math::FlightDirection(')){throw 'Shared pitched flight logic missing'}
           if(-not $patched.Contains('pgrpfc_math::FlightDirection(')){throw 'Pitch-relative W/S camera flight missing'}
           if(-not $gui.Contains('WM_INPUT') -or -not $gui.Contains('RegisterRawInputDevices')){throw 'Relative mouse path missing'}
           Write-Host 'PASS: Mouse is relative, W/S follows pitch, no cursor warps'
