@@ -26,7 +26,7 @@ Patch 'native/sampraknet_bridge.cpp' @'
 Patch 'native/sampraknet_bridge.cpp' @'
             s.yaw=std::remainder(s.yaw+mx*mouseScale,6.283185307f);
 '@ @'
-            s.yaw=std::remainder(s.y-mx*mouseScale,6.283185307f);
+            s.yaw=std::remainder(s.yaw-mx*mouseScale,6.283185307f);
 '@ 'mouse right moves camera to the right in GTA frame'
 # v0520 (for stability) limited pitch to 80 degrees, despite the HUD's
 # advertised nearly-vertical look. With corrected basis we can use +/-89.
