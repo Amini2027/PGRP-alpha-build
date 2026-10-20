@@ -52,14 +52,23 @@ Patch 'native/sampraknet_bridge.cpp' @'
 '@ @'
             : std::string("[PGRP FreeCam v0.5.22] UPRIGHT: full 360 yaw, +/-89 pitch. Ctrl+F11 enters vertical spin."));
 '@ 'display accurate pitch limit and testable build marker'
-# Diagnostic block is throttled to ~1 sample/240 frames, and the DLL path
-# is logged once on first active FreeCam render. Avoid logging every Raw HID
-# packet, which previously caused frame drops on weak hardware.
+# Do not access matrix/render locals from the separate input Tick scope.
 Patch 'native/sampraknet_bridge.cpp' @'
         if((++renderTick % 18000)==0)
             Log("[PGRP FC v0521] camera hook alive, frame %u",renderTick);
 '@ @'
-        if((++renderTick)==1) {
+        if((++renderTick % 18000)==0)
+            Log("[PGRP FC v0522] camera input tick alive, frame %u",renderTick);
+'@ 'update existing input tick heartbeat version'
+# Log exact loaded DLL path once from the real post-CCamera::Process hook
+# and print the actual written matrix values at a safe low sample rate.
+Patch 'native/sampraknet_bridge.cpp' @'
+        put3(m+0x30,pos);
+        // Synchronise the RenderWare camera with the overridden GTA matrix.
+'@ @'
+        put3(m+0x30,pos);
+        static unsigned matrixCheckCount=0;
+        if((++matrixCheckCount)==1) {
             char dllPath[MAX_PATH]={0};
             HMODULE activeDll=GetModuleHandleA("Client.Native.dll");
             if(activeDll && GetModuleFileNameA(activeDll,dllPath,MAX_PATH))
@@ -67,8 +76,7 @@ Patch 'native/sampraknet_bridge.cpp' @'
             else
                 Log("[PGRP FC v0522] BUILD=matrixfix-20261020 DLL_PATH_UNAVAILABLE");
         }
-        if((renderTick % 240)==0) {
-            // Printed front/up are exactly what we have stored in CMatrix.
+        if((matrixCheckCount % 240)==0) {
             const float* matrixForward=reinterpret_cast<const float*>(m+0x10);
             const float* matrixUp=reinterpret_cast<const float*>(m+0x20);
             const float dotFF=forward[0]*matrixForward[0]
@@ -76,8 +84,9 @@ Patch 'native/sampraknet_bridge.cpp' @'
             const float dotUU=up[0]*matrixUp[0]
                  +up[1]*matrixUp[1]+up[2]*matrixUp[2];
             Log("[PGRP FC v0522] frame=%u yaw=%.4f pitch=%.4f pos=(%.2f,%.2f,%.2f) forward=(%.3f,%.3f,%.3f) up=(%.3f,%.3f,%.3f) matrixDotF=%.5f matrixDotU=%.5f",
-                renderTick,s.yaw,s.pitch,s.x,s.y,s.z,forward[0],forward[1],forward[2],
+                matrixCheckCount,s.yaw,s.pitch,s.x,s.y,s.z,forward[0],forward[1],forward[2],
                 up[0],up[1],up[2],dotFF,dotUU);
         }
-'@ 'diagnostic build ID, loaded DLL absolute path and live matrix consistency'
+        // Synchronise the RenderWare camera with the overridden GTA matrix.
+'@ 'diagnostic exact loaded DLL path and rendered CMatrix data from valid scope'
 Write-Host 'PGRP v0.5.22: verified GTA CMatrix Right/Forward/Up, camera right handedness, yaw sign, +/-89 degree upright look.'
