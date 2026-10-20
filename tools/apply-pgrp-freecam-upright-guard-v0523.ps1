@@ -4,7 +4,7 @@ function Patch([string]$path,[string]$before,[string]$after,[string]$label){
     $full=(Resolve-Path -LiteralPath (Join-Path $Root $path)).Path
     $s=[IO.File]::ReadAllText($full)
     $n=([regex]::Matches($s,[regex]::Escape($before))).Count
-    if($n -ne 1){throw "PGRP v0.5.23 $label: expected one anchor, found $n"}
+    if($n -ne 1){throw "PGRP v0.5.23 ${label}: expected one anchor, found $n"}
     [IO.File]::WriteAllText($full,$s.Replace($before,$after),[Text.UTF8Encoding]::new($false))
     Write-Host "PGRP v0.5.23 PATCH OK: $label"
 }
