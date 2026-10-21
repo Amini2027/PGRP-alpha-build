@@ -172,7 +172,7 @@ jobs:
           if(-not $b.Contains('const auto dir=pgrpfc_math::FlightDirection(')){throw 'Pitch-relative W/S movement not compiled'}
           if(-not $b.Contains('void PgrpFreeCamBeforeRWCopy(void* camera)')){throw 'No late RW pose enforcement'}
           if(-not $b.Contains('void PgrpFreeCamAfterRWCopy(void* camera)')){throw 'No post-copy RenderWare measurement'}
-          if(-not $b.Contains('dotAltUp=')) { throw 'RenderWare post-copy telemetry incomplete' }
+          if(-not $b.Contains('LTMup=%.4f LTMat=%.4f')) { throw 'Real RenderWare LTM telemetry missing' }
           $hook=[IO.File]::ReadAllText('upstream/native/hooks.cpp')
           if(-not $hook.Contains('hkPgrpCameraCopy')){throw 'RW camera copy hook missing'}
           $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
