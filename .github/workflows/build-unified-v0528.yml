@@ -159,7 +159,7 @@ jobs:
           if(-not $b.Contains('put3(m+0x20,up);')){throw 'CMatrix up offset still wrong'}
           if($b.Contains('put3(m+0x10,up);')){throw 'Old swapped matrix forward remains'}
           if($b.Contains('put3(m+0x20,forward);')){throw 'Old swapped matrix up remains'}
-          if($b.Contains('s.yaw=std::remainder(s.yaw+mx*mouseScale')){throw 'Old inverted Raw Mouse X still exists'}
+          if($b.Contains('s.yaw=std::remainder(s.yaw-mx*mouseScale')){throw 'Old inverted horizontal camera movement still exists'}
           if(-not $b.Contains('s.yaw=std::remainder(s.yaw+mx*mouseScale')){throw 'Updated horizontal mouse direction is missing'}
           if($b.Contains('std::remainder(s.y-mx*mouseScale')){throw 'CRITICAL: camera position Y accidentally used as yaw'}
           $yawLines=$b -split "`n" | Where-Object {$_ -match 's\.yaw\s*=\s*std::remainder'}
