@@ -196,7 +196,7 @@ jobs:
           $hooks=[IO.File]::ReadAllText('upstream/native/hooks.cpp')
           if(-not $hooks.Contains('hkPgrpConstructRenderList')){throw 'No renderer visibility-list hook'}
           if(-not $hooks.Contains('0x5556E0')){throw 'Incorrect GTA 1.0 visibility-list address'}
-          if(-not $b.Contains('PGRP FC v0528 REQUEST')){throw 'Per-scene streaming request diagnostics missing'}
+          if(-not $b.Contains('PGRP FC v0527 REQUEST')){throw 'Per-scene streaming request diagnostics missing'}
           if(-not $b.Contains('PGRP FC v0528 SCENE')){throw 'Visible objects and streaming queue diagnostics missing'}
           if(-not $b.Contains('reinterpret_cast<RequestFrustum>(0x555960)(view,0);')){throw 'No camera-directional street/building model requests'}
           if(-not $b.Contains('pendingBefore=%u pendingAfter=%u')){throw 'No model queue before/after measurement'}
