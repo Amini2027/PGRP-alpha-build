@@ -138,7 +138,7 @@ jobs:
           & ./tools/apply-pgrp-freecam-upright-guard-v0523.ps1 -Root upstream
           & ./tools/apply-pgrp-freecam-renderware-sync-v0524.ps1 -Root upstream
           $b=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
-          if(-not $b.Contains('[PGRP FC v0524] Camera mode: UPRIGHT_LOCKED')){throw 'Upright-only mode marker missing'}
+          if(-not $b.Contains('[PGRP FC v0523] Camera mode: UPRIGHT_LOCKED')){throw 'Upright-only mode marker missing'}
           if($b.Contains('s.fullVertical=ctrlPressed ? !s.fullVertical : false;')){throw 'Vertical inversion is still accessible'}
           if(-not $b.Contains('s.renderYaw=s.yaw;')){throw 'Second camera rotation filter remains'}
           if($b.Contains('renderTick % 120)')){throw 'Excessive camera hook logging persists'}
