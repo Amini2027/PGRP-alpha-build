@@ -186,7 +186,7 @@ jobs:
           if(-not $b.Contains('pgrpfc_math::FlightDirection(')){throw 'Camera-relative movement not compiled'}
           if(-not $b.Contains('UPRIGHT_LOCKED')){throw 'F11 upright rescue mode missing'}
           $ui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
-          if(-not $ui.Contains('return DefWindowProc(hWnd,msg,wParam,lParam);')){throw 'WM_INPUT is still being double dispatched'}
+          if(-not $ui.Contains('GET_RAWINPUT_CODE_WPARAM(wParam)==RIM_INPUT')){throw 'WM_INPUT foreground cleanup missing'}
           Write-Host 'PASS: permanent horizon lock / bounded raw mouse / diagnostic log'
           $src=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
           if($src.Contains('st.pitch=(std::max)(-1.20f')){throw 'Pitch still restricted to 69 degrees'}
