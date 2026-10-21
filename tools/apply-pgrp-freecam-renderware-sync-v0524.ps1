@@ -102,7 +102,7 @@ Patch 'native/sampraknet_bridge.cpp' @'
         static DWORD lastLog=0;
         ++copyCount;
         const DWORD now=GetTickCount();
-        if(now-lastLog<650)return;
+        if(now-lastLog<2500)return;
         lastLog=now;
         const auto& s=pgrpfc::st;
         const float pitch=(std::max)(-1.3962634f,
@@ -132,8 +132,13 @@ Patch 'native/sampraknet_bridge.cpp' @'
     void PgrpFreeCamAfterCameraProcess(){
 '@ 'enforce single FreeCam pose at RW copy; inspect real post-copy basis'
 Patch 'native/sampraknet_bridge.cpp' @'
-[PGRP FC v0523] BUILD=upright-rawguard-20261020
+                Log("[PGRP FC v0523] BUILD=upright-rawguard-20261020 DLL=%s",dllPath);
 '@ @'
-[PGRP FC v0524] BUILD=rw-copy-supervised-20261021
-'@ 'new DLL build fingerprint'
+                Log("[PGRP FC v0524] BUILD=rw-copy-supervised-20261021 DLL=%s",dllPath);
+'@ 'new DLL path fingerprint'
+Patch 'native/sampraknet_bridge.cpp' @'
+                Log("[PGRP FC v0523] BUILD=upright-rawguard-20261020 DLL_PATH_UNAVAILABLE");
+'@ @'
+                Log("[PGRP FC v0524] BUILD=rw-copy-supervised-20261021 DLL_PATH_UNAVAILABLE");
+'@ 'new DLL fallback fingerprint'
 Write-Host 'PGRP v0.5.24: supervised camera copy, true RW matrix diagnostics, single-owner raw mouse.'
