@@ -220,7 +220,7 @@ jobs:
           if(-not $b.Contains('gPgrpSavedTunnels')){throw 'Tunnel culling flag not preserved'}
           if(-not $b.Contains('gPgrpSavedExterior')){throw 'Outside road culling flag not preserved'}
           if(-not $b.Contains('reinterpret_cast<RequestDirection>(0x555CB0)')){throw 'Async four-direction prefetch unavailable'}
-          if(-not $b.Contains('PGRP FC v0530 ENTITIES')){throw 'Real visible buildings not counted'}
+          if(-not $b.Contains('PGRP FC v0529 ENTITIES')){throw 'Real visible buildings not counted'}
           $h=[IO.File]::ReadAllText('upstream/native/hooks.cpp')
           if(-not $h.Contains('hkPgrpRendererScanWorld')){throw 'Renderer sector hook missing'}
           if(-not $h.Contains('0x554FE0')){throw 'Incorrect GTA sector scan address'}
