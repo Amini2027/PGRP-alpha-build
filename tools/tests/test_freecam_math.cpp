@@ -28,6 +28,14 @@ int main(){
       assert(near(dot(b.right,b.up),0)&&near(dot(b.right,b.forward),0)&&near(dot(b.up,b.forward),0));
       assert(near(dot(cross(b.forward,b.up),b.right),1));
       assert(near(dot(cross(b.right,b.forward),b.up),1));
+      // The render camera uses RwMatrix [right, up, at]; its orientation
+      // must be proper (+1 determinant). Re-using GTA CMatrix right here
+      // mirrors the whole world and can cull roads/building front faces.
+      const auto rwRight=RenderWareRight(b);
+      assert(near(dot(cross(rwRight,b.up),b.forward),1));
+      assert(near(dot(cross(b.right,b.up),b.forward),-1));
+      assert(near(dot(rwRight,b.right),-1));
+
       auto w=FlightDirection(yaw,pitch,1,0,0);
       auto s=FlightDirection(yaw,pitch,-1,0,0);
       assert(near(dot(w,b.forward),1)&&near(dot(s,b.forward),-1));
