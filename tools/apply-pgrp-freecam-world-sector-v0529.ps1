@@ -48,13 +48,18 @@ Patch 'native/hooks.cpp' @'
     if(!Install_PgrpRenderRoads_Hook())
 '@ 'install map sector hook'
 Patch 'native/sampraknet_bridge.cpp' @'
+    static unsigned gPgrpRoadPasses=0;
+'@ @'
+    static unsigned char gPgrpSavedTunnels=0,gPgrpSavedExterior=0;
+    static unsigned gPgrpWorldScanCount=0;
+    static unsigned gPgrpRoadPasses=0;
+'@ 'declare sector state before scene diagnostics'
+Patch 'native/sampraknet_bridge.cpp' @'
     void PgrpFreeCamBeforeRenderList(){
 '@ @'
     // CRenderer::ScanWorld uses these flags to omit candidate entities.
     // The GTA code sets them based on tunnel CullZones even for FreeCam.
     // Permit both kinds of map geometry while flying in normal area 0.
-    static unsigned char gPgrpSavedTunnels=0,gPgrpSavedExterior=0;
-    static unsigned gPgrpWorldScanCount=0;
     bool PgrpFreeCamBeginWorldScan(){
         if(!PgrpFreeCamIsActive())return false;
         __try {
