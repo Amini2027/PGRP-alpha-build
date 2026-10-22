@@ -10,6 +10,13 @@ inline Basis BuildBasis(float yaw,float pitch) noexcept {
     // GTA SA right = forward cross up. Right-handed camera matrix layout.
     return {{sy,-cy,0.f},{-cy*sp,-sy*sp,cp},{cy*cp,sy*cp,sp}};
 }
+// GTA CMatrix basis is [right, forward, up]. RenderWare RwMatrix basis
+// is [right, up, at]. Swapping the last two axes reverses the determinant;
+// invert only the RenderWare right axis to retain determinant +1.
+// FreeCam motion/strafing MUST continue to use Basis::right unchanged.
+inline Vec3 RenderWareRight(const Basis& b) noexcept {
+    return {-b.right.x,-b.right.y,-b.right.z};
+}
 inline Vec3 FlightDirection(float yaw,float pitch,float forwardAxis,
                             float strafeAxis,float altitudeAxis) noexcept {
     const auto b=BuildBasis(yaw,pitch);
