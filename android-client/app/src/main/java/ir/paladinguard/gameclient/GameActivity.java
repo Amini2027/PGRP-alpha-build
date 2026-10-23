@@ -82,7 +82,7 @@ public final class GameActivity extends Activity {
         TextView logo=label("PALADIN GUARD  /  ROLEPLAY",17,GOLD,true);
         logo.setLetterSpacing(.09f);
         title.addView(logo);
-        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.3",10,CYAN,true);
+        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4",10,CYAN,true);
         title.addView(sub);
         hud.addView(title,new LinearLayout.LayoutParams(0,-2,1));
 
@@ -148,6 +148,64 @@ public final class GameActivity extends Activity {
             .setPositiveButton("شروع آزمایش",(d,w)->{}).show(),350);
     }
 
+
+    // Read original PC GTA text-IPL placement coordinates in the background.
+    // Binary IPL, Rockstar DFF/TXD rendering and open.mp multiplayer are not ready.
+    private void openRealMapPreview(){
+        String uri=getSharedPreferences(PREFS,MODE_PRIVATE).getString("gta_tree","");
+        if(uri.isEmpty()){
+            new AlertDialog.Builder(this).setMessage("ابتدا دیتای GTA را انتخاب کن.")
+                .setPositiveButton("بستن",null).show();
+            return;
+        }
+        if(assetStatus!=null)assetStatus.setText("در حال پردازش فایل‌های اصلی IDE / IPL...");
+        io.submit(()->{
+            GtaMapPlacementIndex.Result result=null;
+            String failure=null;
+            try{
+                GtaMapSafSource files=new GtaMapSafSource(this,Uri.parse(uri));
+                try(java.io.Reader manifest=files.openManifest()){
+                    result=GtaMapPlacementIndex.read(manifest,files);
+                }
+            }catch(Exception e){failure=e.getMessage();}
+            final GtaMapPlacementIndex.Result map=result;
+            final String err=failure;
+            handler.post(()->{
+                if(isFinishing()||isDestroyed())return;
+                if(map==null){
+                    if(assetStatus!=null)assetStatus.setText("خواندن جانمایی GTA ناموفق بود");
+                    new AlertDialog.Builder(this).setTitle("خطای بررسی نقشه")
+                        .setMessage(err==null?"خطای نامشخص":err)
+                        .setPositiveButton("بستن",null).show();
+                    return;
+                }
+                if(assetStatus!=null)
+                    assetStatus.setText("IPL متنی: "+map.iplLoaded+"/"+map.iplPaths+
+                        " | اشیای بیرونی نزدیک لس‌سانتوس: "+map.nearbyOutside);
+                GtaIplMapPreview points=new GtaIplMapPreview(this,map);
+                points.setMinimumHeight(dp(350));
+                android.widget.FrameLayout frame=new android.widget.FrameLayout(this);
+                frame.addView(points,new android.widget.FrameLayout.LayoutParams(-1,dp(350)));
+                StringBuilder info=new StringBuilder();
+                info.append("IPL: ").append(map.iplLoaded).append("/").append(map.iplPaths)
+                    .append(" | IDE: ").append(map.ideLoaded).append("/").append(map.idePaths)
+                    .append("\nمدل‌های تعریف‌شده: ").append(map.definitions)
+                    .append(" | اشیای متنی: ").append(map.instances)
+                    .append("\nنمونه‌های نقشه: ").append(map.visibleSamples.size())
+                    .append(" | فایل‌های ناموجود: ").append(map.missingFiles)
+                    .append(" | رکوردهای نامعتبر: ").append(map.invalidRecords)
+                    .append("\n\nنقاط و مختصات اصلی GTA هستند، نه مدل سه‌بعدی. IPL باینری و DFF/TXD هنوز پشتیبانی نمی‌شود.");
+                if(!map.sampleErrors.isEmpty()){
+                    info.append("\n\nنمونه خطا: ").append(map.sampleErrors.get(0));
+                }
+                new AlertDialog.Builder(this)
+                    .setTitle("GTA San Andreas — جانمایی واقعی IPL")
+                    .setMessage(info.toString())
+                    .setView(frame)
+                    .setPositiveButton("بستن",null).show();
+            });
+        });
+    }
 
     private void showDataOptions(){
         new AlertDialog.Builder(this)
@@ -217,10 +275,13 @@ public final class GameActivity extends Activity {
                     assetStatus.setText(checked.readyForIndexing?
                         "دیتای GTA شناسایی شد — "+checked.objects+" مدل در IMG":
                         "دیتای GTA ناقص یا ناسازگار");
-                    new AlertDialog.Builder(this)
+                    AlertDialog.Builder scanDialog=new AlertDialog.Builder(this)
                         .setTitle(checked.readyForIndexing?"شناسایی موفق دیتای GTA":"بررسی فایل‌های GTA")
                         .setMessage(checked.details)
-                        .setPositiveButton("بستن",null).show();
+                        .setPositiveButton("بستن",null);
+                    if(checked.readyForIndexing)
+                        scanDialog.setNeutralButton("جانمایی نقشه",(dialog,which)->openRealMapPreview());
+                    scanDialog.show();
                 }else{
                     assetStatus.setText("خواندن پوشه GTA امکان‌پذیر نشد");
                     new AlertDialog.Builder(this)
