@@ -80,7 +80,16 @@ public final class GtaMapPlacementIndex {
                 if(ws<0)continue;
                 String type=line.substring(0,ws).toUpperCase(Locale.ROOT);
                 if(!type.equals("IDE")&&!type.equals("IPL"))continue;
-                String name=normalizeGamePath(line.substring(ws).trim());
+                // GTA's gta.dat may list non-IPL zone metadata such as
+                // IPL DATA\\MAPS\\MAP.ZON / INFO.ZON. Those files do NOT
+                // contain textual inst sections. Skip by real extension
+                // BEFORE applying the strict path validator; previously an
+                // exception here aborted the whole map scan.
+                String rawPath=line.substring(ws).trim();
+                String normalizedSuffix=rawPath.replace('\\','/').toLowerCase(Locale.ROOT);
+                String required=type.equals("IDE")?".ide":".ipl";
+                if(!normalizedSuffix.endsWith(required))continue;
+                String name=normalizeGamePath(rawPath);
                 (type.equals("IDE")?ide:ipl).add(name);
                 if(ide.size()+ipl.size()>MAX_PATHS)
                     throw new IOException("Excessive GTA manifest references");
