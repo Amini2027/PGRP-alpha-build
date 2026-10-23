@@ -1,0 +1,73 @@
+name: PGRP Independent Android Game Client 0.3.0
+
+on:
+  push:
+    branches: [feature/pgrp-android-gta-asset-inspector-v030]
+    paths:
+      - 'android-client/**'
+      - '.github/workflows/build-independent-android-v030.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  independent-game-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout independent Android game code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Use GitHub runner Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test independent movement and RakNet header, build game APK
+        working-directory: android-client
+        run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
+      - name: Verify PGRP independent APK
+        run: |
+          set -euo pipefail
+          src="android-client/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$src"
+          cp "$src" PGRP_Independent_Android_Client_v0.3.0_Alpha.apk
+          unzip -l PGRP_Independent_Android_Client_v0.3.0_Alpha.apk | grep 'classes.dex'
+          sha256sum PGRP_Independent_Android_Client_v0.3.0_Alpha.apk
+          ls -lh PGRP_Independent_Android_Client_v0.3.0_Alpha.apk
+
+      - name: Preserve independent client APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-Android-GTA-Asset-Inspector-Alpha
+          path: PGRP_Independent_Android_Client_v0.3.0_Alpha.apk
+          if-no-files-found: error
+
+      - name: Release alpha game-client APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v0.3.0-android-gta-asset-inspection"
+          sha="$(sha256sum PGRP_Independent_Android_Client_v0.3.0_Alpha.apk | cut -d' ' -f1)"
+          notes="Standalone 3D engine alpha with Android 9+ user-selected GTA San Andreas PC file validation. Supports read-only IMG VER2 archive directory inspection and gta.dat/maps checks; no copyrighted game data bundled or uploaded. Gameplay continues in separate prototype world. Full GTA map rendering and multiplayer open.mp protocol NOT YET implemented. Debug-signed for testing. SHA256: $sha"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" PGRP_Independent_Android_Client_v0.3.0_Alpha.apk --clobber
+          else
+            gh release create "$tag" PGRP_Independent_Android_Client_v0.3.0_Alpha.apk --target feature/pgrp-android-gta-asset-inspector-v030 --title 'PGRP Android v0.3 - Read-only GTA Asset Inspector' --notes "$notes" --prerelease
+          fi
