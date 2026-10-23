@@ -3,6 +3,10 @@ package ir.paladinguard.gameclient;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.provider.DocumentsContract;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -28,6 +32,8 @@ import java.net.SocketTimeoutException;
  * Real open.mp in-game protocol is a separate, unimplemented milestone.
  */
 public final class GameActivity extends Activity {
+    private static final int GTA_TREE_REQUEST=3019;
+    private static final String PREFS="pgrp_gta_local_assets";
     private static final int BACK=0xCC0B1725,WHITE=0xFFF3F5F6,GOLD=0xFFEABB70,CYAN=0xFF59C9EA;
     private GLSurfaceView surface;
     private WorldRenderer renderer;
@@ -35,6 +41,8 @@ public final class GameActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private boolean busy;
+    private boolean inspectingAssets;
+    private TextView assetStatus;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -74,7 +82,7 @@ public final class GameActivity extends Activity {
         TextView logo=label("PALADIN GUARD  /  ROLEPLAY",17,GOLD,true);
         logo.setLetterSpacing(.09f);
         title.addView(logo);
-        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.2",10,CYAN,true);
+        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.3",10,CYAN,true);
         title.addView(sub);
         hud.addView(title,new LinearLayout.LayoutParams(0,-2,1));
 
@@ -91,6 +99,12 @@ public final class GameActivity extends Activity {
         LinearLayout.LayoutParams resetLp=new LinearLayout.LayoutParams(-2,dp(42));
         resetLp.leftMargin=dp(8);
         hud.addView(reset,resetLp);
+
+        Button assets=smallButton("دیتای GTA",0xFF254459,GOLD);
+        assets.setOnClickListener(v->showDataOptions());
+        LinearLayout.LayoutParams assetLp=new LinearLayout.LayoutParams(-2,dp(42));
+        assetLp.leftMargin=dp(8);
+        hud.addView(assets,assetLp);
 
         playerCoords=label("X 0     Z 12     HDG 0°",12,WHITE,true);
         playerCoords.setPadding(dp(10),dp(7),dp(10),dp(7));
@@ -112,7 +126,19 @@ public final class GameActivity extends Activity {
         noteLp.rightMargin=dp(18);noteLp.bottomMargin=dp(10);
         root.addView(disclaimer,noteLp);
 
+        assetStatus=label("دیتای واقعی GTA هنوز انتخاب نشده",11,GOLD,true);
+        assetStatus.setPadding(dp(9),dp(5),dp(9),dp(5));
+        assetStatus.setBackground(bg(0xB60B1725,9,0x6659C9EA));
+        FrameLayout.LayoutParams assetLabelParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
+        assetLabelParams.topMargin=dp(79);
+        root.addView(assetStatus,assetLabelParams);
+
         setContentView(root);
+        String savedTree=getSharedPreferences(PREFS,MODE_PRIVATE).getString("gta_tree","");
+        if(!savedTree.isEmpty()){
+            assetStatus.setText("دیتای GTA انتخاب شده — بررسی مجدد در حال اجرا");
+            inspectTree(Uri.parse(savedTree));
+        }
         handler.postDelayed(()->new AlertDialog.Builder(this)
             .setTitle("PGRP Independent Client — Alpha 0.2")
             .setMessage("این برنامه یک موتور سه‌بعدی مستقل با کنترل لمسی است، نه SA-MP Launcher.\n\n"
@@ -120,6 +146,89 @@ public final class GameActivity extends Activity {
                 +"برای ورود واقعی به سرور PGRP، بخش پروتکل RakNet/open.mp، ورود/ثبت‌نام، همگام‌سازی بازیکن، مدل‌ها و فیزیک بازی باید تکمیل شود.\n\n"
                 +"جوی‌استیک سمت چپ حرکت است؛ سمت راست صفحه دوربین را می‌چرخاند. دکمه تست اتصال وضعیت شبکه را بررسی می‌کند، نه ورود به بازی.")
             .setPositiveButton("شروع آزمایش",(d,w)->{}).show(),350);
+    }
+
+
+    private void showDataOptions(){
+        new AlertDialog.Builder(this)
+            .setTitle("دیتای واقعی GTA San Andreas")
+            .setMessage("برای بررسی فایل‌های واقعی نقشه، پوشه GTA.San.Andreas را از نسخه قانونی کامپیوتر به حافظه گوشی منتقل کن.\\n\\n"
+                +"پیشنهاد مسیر گوشی: Download/PGRP-GTA/GTA.San.Andreas\\n"
+                +"پوشه‌های data و models باید مستقیماً داخل پوشه GTA.San.Andreas باشند.\\n\\n"
+                +"با انتخاب پوشه، PGRP فقط فایل‌های gta.dat و IMG را بررسی می‌کند؛ فایل‌ها آپلود، پاک یا دست‌کاری نمی‌شوند.\\n"
+                +"هنوز نمایش نقشه GTA و ورود واقعی به open.mp پشتیبانی نمی‌شود.")
+            .setPositiveButton("انتخاب پوشه",(dialog,which)->chooseGameFolder())
+            .setNeutralButton("بررسی انتخاب قبلی",(dialog,which)->{
+                String stored=getSharedPreferences(PREFS,MODE_PRIVATE).getString("gta_tree","");
+                if(stored.isEmpty()){
+                    new AlertDialog.Builder(this).setMessage("هنوز پوشه‌ای انتخاب نشده است.")
+                        .setPositiveButton("متوجه شدم",null).show();
+                }else inspectTree(Uri.parse(stored));
+            })
+            .setNegativeButton("بستن",null).show();
+    }
+
+    private void chooseGameFolder(){
+        try{
+            Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+            startActivityForResult(intent,GTA_TREE_REQUEST);
+        }catch(Exception e){
+            new AlertDialog.Builder(this).setMessage("انتخاب پوشه در نسخه اندروید یا فایل‌منیجر فعلی در دسترس نیست.")
+                .setPositiveButton("بستن",null).show();
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode!=GTA_TREE_REQUEST || resultCode!=RESULT_OK || data==null)return;
+        Uri tree=data.getData();
+        if(tree==null)return;
+        try{
+            getContentResolver().takePersistableUriPermission(tree,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("gta_tree",tree.toString()).apply();
+            inspectTree(tree);
+        }catch(Exception e){
+            new AlertDialog.Builder(this)
+                .setMessage("دسترسی پایدار به پوشه داده نشد. دوباره پوشه را از فایل‌منیجر انتخاب کن.\\n"+e.getMessage())
+                .setPositiveButton("بستن",null).show();
+        }
+    }
+
+    private void inspectTree(Uri tree){
+        if(inspectingAssets)return;
+        inspectingAssets=true;
+        if(assetStatus!=null)assetStatus.setText("در حال بررسی دیتای محلی GTA...");
+        io.submit(()->{
+            GtaAssetInspector.Report report=null;
+            String failed=null;
+            try{
+                report=new GtaAssetInspector(this,tree).inspect();
+            }catch(Exception e){failed=e.getMessage();}
+            final GtaAssetInspector.Report checked=report;
+            final String error=failed;
+            handler.post(()->{
+                inspectingAssets=false;
+                if(isFinishing()||isDestroyed())return;
+                if(checked!=null){
+                    assetStatus.setText(checked.readyForIndexing?
+                        "دیتای GTA شناسایی شد — "+checked.objects+" مدل در IMG":
+                        "دیتای GTA ناقص یا ناسازگار");
+                    new AlertDialog.Builder(this)
+                        .setTitle(checked.readyForIndexing?"شناسایی موفق دیتای GTA":"بررسی فایل‌های GTA")
+                        .setMessage(checked.details)
+                        .setPositiveButton("بستن",null).show();
+                }else{
+                    assetStatus.setText("خواندن پوشه GTA امکان‌پذیر نشد");
+                    new AlertDialog.Builder(this)
+                        .setMessage("خطا هنگام خواندن داده‌های محلی:\\n"+error)
+                        .setPositiveButton("بستن",null).show();
+                }
+            });
+        });
     }
 
     private int dp(float x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
