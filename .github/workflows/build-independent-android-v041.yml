@@ -2,7 +2,7 @@ name: PGRP Independent Android Game Client 0.4.1
 
 on:
   push:
-    branches: [feature/pgrp-android-ipl-map-preview-v041]
+    branches: [feature/pgrp-android-map-manifest-fix-v041]
     paths:
       - 'android-client/**'
       - '.github/workflows/build-independent-android-v041.yml'
@@ -110,5 +110,5 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" PGRP_Independent_Android_Client_v0.4.1_Alpha.apk signing-compatibility.txt --clobber
           else
-            gh release create "$tag" PGRP_Independent_Android_Client_v0.4.1_Alpha.apk signing-compatibility.txt --target feature/pgrp-android-ipl-map-preview-v041 --title 'PGRP Android v0.4.1 - GTA Manifest Zone Parsing Fix' --notes "$notes" --prerelease
+            gh release create "$tag" PGRP_Independent_Android_Client_v0.4.1_Alpha.apk signing-compatibility.txt --target feature/pgrp-android-map-manifest-fix-v041 --title 'PGRP Android v0.4.1 - GTA Manifest Zone Parsing Fix' --notes "$notes" --prerelease
           fi
