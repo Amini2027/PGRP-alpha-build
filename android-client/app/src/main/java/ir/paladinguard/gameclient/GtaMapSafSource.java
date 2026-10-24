@@ -89,6 +89,38 @@ public final class GtaMapSafSource implements GtaMapPlacementIndex.Source {
         }
     }
 
+    /** Preview one real, small static DFF from original local GTA archive.
+     * Does not distribute assets, access the network, or load the whole IMG.
+     */
+    public GtaDffArchive.Result loadRealDff() throws IOException {
+        Entry models=children(rootId).get("models");
+        if(models==null||!DIRECTORY.equals(models.mime))
+            throw new IOException("GTA models directory missing");
+        Entry archive=children(models.id).get("gta3.img");
+        if(archive==null||DIRECTORY.equals(archive.mime))
+            throw new IOException("Missing local gta3.img");
+        Uri uri=DocumentsContract.buildDocumentUriUsingTree(tree,archive.id);
+        try(android.os.ParcelFileDescriptor fd=resolver.openFileDescriptor(uri,"r")){
+            if(fd==null)throw new IOException("GTA archive not readable");
+            try(java.io.FileInputStream input=new java.io.FileInputStream(fd.getFileDescriptor())){
+                java.nio.channels.FileChannel channel=input.getChannel();
+                return GtaDffArchive.firstSupported(new GtaBinaryIplIndex.RandomReader(){
+                    @Override public long length() throws IOException{return channel.size();}
+                    @Override public void read(long at,byte[] dest,int off,int count) throws IOException{
+                        if(at<0||off<0||count<0||off>dest.length-count)
+                            throw new IOException("Invalid DFF IMG read");
+                        java.nio.ByteBuffer buffer=java.nio.ByteBuffer.wrap(dest,off,count);
+                        while(buffer.hasRemaining()){
+                            int n=channel.read(buffer,at);
+                            if(n<=0)throw new IOException("IMG truncated during DFF read");
+                            at+=n;
+                        }
+                    }
+                });
+            }
+        }catch(SecurityException e){throw new IOException("GTA folder permission denied",e);}
+    }
+
     public Reader openManifest() throws IOException {return openGameFile("data/gta.dat");}
     @Override public Reader open(String name) throws IOException {
         return openGameFile(GtaMapPlacementIndex.normalizeGamePath(name));
