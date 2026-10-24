@@ -45,6 +45,7 @@ jobs:
           for f in "$src"/*.java; do cp "$f" "$dst/"; done
           mv "$dst/MainActivity.java" "$dst/PgrpRealModelViewerActivity.java"
           mv "$dst/GtaMapPlacementIndex.java" "$dst/GtaMapPlacementIndexV47.java"
+          git show HEAD:android-client/app/src/main/java/ir/paladinguard/gameclient/GtaMapPlacementIndex.java > "$dst/GtaMapPlacementIndex.java"
           for f in GtaBinaryWorldIndex.java GtaWorldScenePlanner.java GtaWorldModelLoader.java GtaDffMaterials.java RenderWareTxd.java GtaDffGeometry.java GtaMapPlacementIndexV47.java PgrpTexturedModelView.java GtaBinaryIpl.java GtaImgV2.java PgrpRealModelViewerActivity.java; do
             sed -i 's/GtaMapPlacementIndex/GtaMapPlacementIndexV47/g' "$dst/$f"
           done
@@ -66,11 +67,17 @@ jobs:
           grep -q "name='ir.paladinguard.gameclient'" <<< "$info"
           grep -q "versionCode='48'" <<< "$info"
           cp "$apk" PGRP_Android_v0.4.8_InPlace_UNSIGNED.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" PGRP_apksigner.jar
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" PGRP_zipalign
+          chmod +x PGRP_zipalign
       - name: Upload unsigned build for safe offline signing
         uses: actions/upload-artifact@v4
         with:
           name: PGRP-v048-InPlace-unsigned
-          path: PGRP_Android_v0.4.8_InPlace_UNSIGNED.apk
+          path: |
+            PGRP_Android_v0.4.8_InPlace_UNSIGNED.apk
+            PGRP_apksigner.jar
+            PGRP_zipalign
           if-no-files-found: error
       - name: Sign same package with permanent PGRP release keystore
         if: env.PGRP_KEYSTORE_B64 != '' && env.PGRP_STORE_PASS != ''
