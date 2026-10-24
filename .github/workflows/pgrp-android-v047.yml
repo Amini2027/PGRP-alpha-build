@@ -1,0 +1,51 @@
+name: PGRP Android v0.4.7 – build test APK
+on:
+  push:
+    branches: [pgrp-android-v047]
+    paths:
+      - 'android-real-preview/**'
+      - '.github/workflows/pgrp-android-v047.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+      - name: Restore reviewed Java source archive
+        shell: bash
+        run: |
+          base64 -d android-real-preview/PGRP_Source_Payload.b64 | tar -xJf -
+          test -f android-real-preview/app/build.gradle
+          test -f android-real-preview/app/src/main/java/ir/paladinguard/gameclient/MainActivity.java
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install required SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile v0.4.7 debug Android APK
+        working-directory: android-real-preview
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Validate APK file
+        shell: bash
+        run: |
+          test -s android-real-preview/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android-real-preview/app/build/outputs/apk/debug/app-debug.apk | head -10
+      - name: Attach test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-Android-v047-RealModelViewer-APK
+          path: android-real-preview/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
