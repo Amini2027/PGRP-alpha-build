@@ -6,6 +6,8 @@ on:
     paths:
       - android-client/**
       - .github/workflows/build-android-inplace-v048.yml
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
