@@ -82,7 +82,7 @@ public final class GameActivity extends Activity {
         TextView logo=label("PALADIN GUARD  /  ROLEPLAY",17,GOLD,true);
         logo.setLetterSpacing(.09f);
         title.addView(logo);
-        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.3",10,CYAN,true);
+        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.4",10,CYAN,true);
         title.addView(sub);
         hud.addView(title,new LinearLayout.LayoutParams(0,-2,1));
 
@@ -225,6 +225,45 @@ public final class GameActivity extends Activity {
         });
     }
 
+    /** Preview one original GTA San Andreas DFF model locally from IMG.
+     * Reading and decoding run off the UI thread; never upload or cache the
+     * user's game files. The whole city and texture pipeline are NOT done.
+     */
+    private void openRealDffPreview(){
+        String saved=getSharedPreferences(PREFS,MODE_PRIVATE).getString("gta_tree","");
+        if(saved.isEmpty()){
+            new AlertDialog.Builder(this).setMessage("ابتدا پوشه دیتای GTA را انتخاب کن.")
+                .setPositiveButton("بستن",null).show();
+            return;
+        }
+        if(assetStatus!=null)assetStatus.setText("در حال خواندن مدل واقعی DFF از gta3.img...");
+        io.submit(()->{
+            GtaDffArchive.Result result=null;
+            String error=null;
+            try{
+                result=new GtaMapSafSource(this,Uri.parse(saved)).loadRealDff();
+            }catch(Exception e){error=e.getMessage();}
+            final GtaDffArchive.Result output=result;
+            final String message=error;
+            handler.post(()->{
+                if(isFinishing()||isDestroyed())return;
+                if(output!=null){
+                    if(assetStatus!=null)
+                        assetStatus.setText("DFF: "+output.mesh.name+
+                            " | "+output.mesh.originalTriangles+" مثلث واقعی");
+                    GtaDffPreviewActivity.show(this,output.mesh);
+                }else{
+                    if(assetStatus!=null)assetStatus.setText("مدل DFF سازگار پیدا نشد");
+                    new AlertDialog.Builder(this)
+                        .setTitle("پیش‌نمایش مدل واقعی GTA")
+                        .setMessage("نسخه فعلی بعضی انواع DFF را پشتیبانی نمی‌کند.\n"+
+                            (message==null?"خطا نامشخص است":message))
+                        .setPositiveButton("بستن",null).show();
+                }
+            });
+        });
+    }
+
     private void showDataOptions(){
         new AlertDialog.Builder(this)
             .setTitle("دیتای واقعی GTA San Andreas")
@@ -297,8 +336,10 @@ public final class GameActivity extends Activity {
                         .setTitle(checked.readyForIndexing?"شناسایی موفق دیتای GTA":"بررسی فایل‌های GTA")
                         .setMessage(checked.details)
                         .setPositiveButton("بستن",null);
-                    if(checked.readyForIndexing)
+                    if(checked.readyForIndexing){
                         scanDialog.setNeutralButton("جانمایی نقشه",(dialog,which)->openRealMapPreview());
+                        scanDialog.setNegativeButton("مدل DFF سه‌بعدی",(dialog,which)->openRealDffPreview());
+                    }
                     scanDialog.show();
                 }else{
                     assetStatus.setText("خواندن پوشه GTA امکان‌پذیر نشد");
