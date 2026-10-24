@@ -11,7 +11,7 @@ change('txdText.setText("exh_lr_bl2");txdText.setHint("TXD archive name without 
 change('s.append("\\nTip: Enter a DFF and its matching TXD name.");report(s.toString());','s.append("\\nTXD archives: ");int txdCount=0;for(String name:img.directory().keySet())if(name.endsWith(".txd")){if(txdCount<18)s.append(name).append("  ");txdCount++;}s.append("\\nTotal TXD: ").append(txdCount).append("\\nSelect your GTA folder in the main PGRP screen to enable automatic IDE lookup.");report(s.toString());')
 change('final String txd=txdText.getText().toString().trim().toLowerCase(Locale.ROOT).replaceAll("\\\\.txd$","");','final String txdInput=txdText.getText().toString().trim().toLowerCase(Locale.ROOT).replaceAll("\\\\.txd$","");')
 change('||!txd.matches("[a-z0-9_.$-]{1,64}")','||(!txdInput.isEmpty()&&!txdInput.matches("[a-z0-9_.$-]{1,64}"))')
-change('''            GtaWorldModelLoader.ModelData loaded=GtaWorldModelLoader.load(img,new GtaMapPlacementIndex.ModelDef(1,model,txd));''','''            String selectedTxd=txdInput;
+change('''            GtaWorldModelLoader.ModelData loaded=GtaWorldModelLoader.load(img,new GtaMapPlacementIndexV47.ModelDef(1,model,txd));''','''            String selectedTxd=txdInput;
             String resolution="Manual TXD dictionary";
             if(selectedTxd.isEmpty()||selectedTxd.equals("auto")||selectedTxd.equals(model)) {
                 String savedTree=getSharedPreferences("pgrp_gta_local_assets",MODE_PRIVATE).getString("gta_tree","");
@@ -22,7 +22,7 @@ change('''            GtaWorldModelLoader.ModelData loaded=GtaWorldModelLoader.l
                 resolution="Auto-resolved from "+found.source;
             }
             if(img.find(selectedTxd+".txd")==null)throw new IOException("IDE TXD '"+selectedTxd+".txd' is not in selected gta3.img. It may be stored in another IMG archive. Original model: "+model);
-            GtaWorldModelLoader.ModelData loaded=GtaWorldModelLoader.load(img,new GtaMapPlacementIndex.ModelDef(1,model,selectedTxd));
+            GtaWorldModelLoader.ModelData loaded=GtaWorldModelLoader.load(img,new GtaMapPlacementIndexV47.ModelDef(1,model,selectedTxd));
             final String usedTxd=selectedTxd;
             final String lookupDetails=resolution;''')
 change('''TextView info=label("REAL GTA MODEL: "+loaded.model+"  |  textures "+loaded.textureByName.size()+"  |  meshes "+loaded.geometry.meshes.size()+"  |  missing "+loaded.missingMaterialTextures.size());''','''TextView info=label("REAL GTA MODEL: "+loaded.model+"  |  TXD "+usedTxd+"  |  textures "+loaded.textureByName.size()+"  |  meshes "+loaded.geometry.meshes.size()+"  |  missing "+loaded.missingMaterialTextures.size()+"\\n"+lookupDetails+(loaded.missingMaterialTextures.isEmpty()?"":"\\nMissing: "+loaded.missingMaterialTextures));''')
