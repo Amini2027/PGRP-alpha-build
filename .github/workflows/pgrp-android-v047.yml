@@ -49,6 +49,7 @@ jobs:
         run: |
           test -s android-real-preview/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android-real-preview/app/build/outputs/apk/debug/app-debug.apk | head -10
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs android-real-preview/app/build/outputs/apk/debug/app-debug.apk
       - name: Attach test APK
         uses: actions/upload-artifact@v4
         with:
