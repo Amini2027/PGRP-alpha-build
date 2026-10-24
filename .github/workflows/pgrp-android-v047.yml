@@ -5,6 +5,8 @@ on:
     paths:
       - 'android-real-preview/**'
       - '.github/workflows/pgrp-android-v047.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
