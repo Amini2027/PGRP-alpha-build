@@ -1,0 +1,120 @@
+name: PGRP Android v0.4.9 In-Place Upgrade
+on:
+  push:
+    branches:
+      - feature/pgrp-android-auto-txd-v049
+    paths:
+      - android-client/**
+      - .github/workflows/build-android-auto-txd-v049.yml
+      - tools/pgrp_patch_auto_txd_v049.py
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PGRP_KEYSTORE_B64: ${{ secrets.PGRP_ANDROID_KEYSTORE_B64 }}
+      PGRP_STORE_PASS: ${{ secrets.PGRP_ANDROID_STORE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Prepare Android SDK
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Integrate 0.4.7 genuine DFF/TXD viewer into existing PGRP 0.4.4 codebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/pgrp-android-v047
+          mkdir -p "$RUNNER_TEMP/pgrp047"
+          git show FETCH_HEAD:android-real-preview/PGRP_Source_Payload.b64 | base64 -d | tar -xJf - -C "$RUNNER_TEMP/pgrp047"
+          src="$RUNNER_TEMP/pgrp047/android-real-preview/app/src/main/java/ir/paladinguard/gameclient"
+          dst="android-client/app/src/main/java/ir/paladinguard/gameclient"
+          test -f "$src/MainActivity.java"
+          for f in "$src"/*.java; do cp "$f" "$dst/"; done
+          mv "$dst/MainActivity.java" "$dst/PgrpRealModelViewerActivity.java"
+          mv "$dst/GtaMapPlacementIndex.java" "$dst/GtaMapPlacementIndexV47.java"
+          git show HEAD:android-client/app/src/main/java/ir/paladinguard/gameclient/GtaMapPlacementIndex.java > "$dst/GtaMapPlacementIndex.java"
+          for f in GtaBinaryWorldIndex.java GtaWorldScenePlanner.java GtaWorldModelLoader.java GtaDffMaterials.java RenderWareTxd.java GtaDffGeometry.java GtaMapPlacementIndexV47.java PgrpTexturedModelView.java GtaBinaryIpl.java GtaImgV2.java PgrpRealModelViewerActivity.java; do
+            sed -i 's/GtaMapPlacementIndex/GtaMapPlacementIndexV47/g' "$dst/$f"
+          done
+          sed -i 's/GtaMapPlacementIndexV47V47/GtaMapPlacementIndexV47/g;s/MainActivity/PgrpRealModelViewerActivity/g;s/v0.4.7/v0.4.9/g' "$dst/PgrpRealModelViewerActivity.java"
+          python3 tools/pgrp_patch_auto_txd_v049.py "$dst/PgrpRealModelViewerActivity.java"
+          grep -q 'class GtaIdeTxdResolver' "$dst/GtaIdeTxdResolver.java"
+          grep -q 'GtaIdeTxdResolver.resolve' "$dst/PgrpRealModelViewerActivity.java"
+          grep -q 'class PgrpRealModelViewerActivity' "$dst/PgrpRealModelViewerActivity.java"
+          grep -q 'class GtaMapPlacementIndexV47' "$dst/GtaMapPlacementIndexV47.java"
+          grep -q "applicationId 'ir.paladinguard.gameclient'" android-client/app/build.gradle
+          grep -q 'versionCode 49' android-client/app/build.gradle
+      - name: Compile original game UI plus integrated textured preview
+        working-directory: android-client
+        run: gradle --no-daemon --stacktrace testDebugUnitTest assembleRelease
+      - name: Verify Android package name and version
+        run: |
+          set -euo pipefail
+          apk="android-client/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$apk"
+          info=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -1)
+          echo "$info"
+          grep -q "name='ir.paladinguard.gameclient'" <<< "$info"
+          grep -q "versionCode='48'" <<< "$info"
+          cp "$apk" PGRP_Android_v0.4.9_InPlace_UNSIGNED.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" PGRP_apksigner.jar
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" PGRP_zipalign
+          chmod +x PGRP_zipalign
+      - name: Upload unsigned build for safe offline signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v049-InPlace-unsigned
+          path: |
+            PGRP_Android_v0.4.9_InPlace_UNSIGNED.apk
+            PGRP_apksigner.jar
+            PGRP_zipalign
+          if-no-files-found: error
+      - name: Sign same package with permanent PGRP release keystore
+        if: env.PGRP_KEYSTORE_B64 != '' && env.PGRP_STORE_PASS != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$PGRP_STORE_PASS"
+          key="$RUNNER_TEMP/pgrp-release.p12"
+          printf '%s' "$PGRP_KEYSTORE_B64" | base64 -d > "$key"
+          chmod 600 "$key"
+          export PGRP_SIGN_PASSWORD="$PGRP_STORE_PASS"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$key" --ks-key-alias pgrp_release --ks-pass env:PGRP_SIGN_PASSWORD --key-pass env:PGRP_SIGN_PASSWORD --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out PGRP_Android_v0.4.9_SameKey_Update.apk PGRP_Android_v0.4.9_InPlace_UNSIGNED.apk
+          output=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs PGRP_Android_v0.4.9_SameKey_Update.apk)
+          echo "$output"
+          grep -q '0880fb4c4f565950fef3f6334c5ebf85a649a1c0a20077df458515f6c09bf9c0' <<< "$output"
+          rm -f "$key"
+      - name: Upload verified signed in-place update
+        if: env.PGRP_KEYSTORE_B64 != '' && env.PGRP_STORE_PASS != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v049-SAME-KEY-IN-PLACE
+          path: PGRP_Android_v0.4.9_SameKey_Update.apk
+          if-no-files-found: error
+      - name: Publish verified update
+        if: env.PGRP_KEYSTORE_B64 != '' && env.PGRP_STORE_PASS != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v0.4.9-android-inplace"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" PGRP_Android_v0.4.9_SameKey_Update.apk --clobber
+          else
+            gh release create "$tag" PGRP_Android_v0.4.9_SameKey_Update.apk --target feature/pgrp-android-auto-txd-v049 --title "PGRP Android 0.4.8 In-Place Update" --notes "Original PGRP app preserved, genuine GTA DFF/TXD preview added. Same package and same original release signing certificate. versionCode 49. Alpha prototype, not complete playable multiplayer." --prerelease
+          fi
