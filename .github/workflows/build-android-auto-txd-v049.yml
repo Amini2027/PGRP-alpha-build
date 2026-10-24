@@ -69,7 +69,7 @@ jobs:
           info=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -1)
           echo "$info"
           grep -q "name='ir.paladinguard.gameclient'" <<< "$info"
-          grep -q "versionCode='48'" <<< "$info"
+          grep -q "versionCode='49'" <<< "$info"
           cp "$apk" PGRP_Android_v0.4.9_InPlace_UNSIGNED.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" PGRP_apksigner.jar
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" PGRP_zipalign
