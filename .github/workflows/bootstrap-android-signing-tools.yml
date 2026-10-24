@@ -1,0 +1,33 @@
+name: PGRP Android Signing Toolkit Bootstrap
+
+on:
+  push:
+    branches: [feature/pgrp-android-stable-signing-v042]
+    paths:
+      - '.github/workflows/bootstrap-android-signing-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check Android signing tool availability
+        run: |
+          set -euo pipefail
+          tool="$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar"
+          if [ ! -f "$tool" ]; then
+            echo "Missing $tool" && exit 1
+          fi
+          java -jar "$tool" --help | head -20
+          mkdir -p signing-tools
+          cp "$tool" signing-tools/apksigner.jar
+      - name: Save signing tool for local Android package verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apksigner-toolkit-private-ci
+          path: signing-tools/apksigner.jar
+          if-no-files-found: error

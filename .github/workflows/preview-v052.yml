@@ -1,0 +1,109 @@
+name: Preview PGRP v0.5.2 — Client Fix and Launcher
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/preview-v052.yml'
+      - 'tools/apply-pgrp-chat-v052.ps1'
+      - 'launcher-v052/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-client:
+    name: Validate and build patched Win32 client
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone pinned working OpenSAMP source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          git clone --depth 1 https://github.com/bssth/opensamp.git upstream
+          if($LASTEXITCODE -ne 0){throw 'clone failed'}
+          git -C upstream fetch --depth 1 origin a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'fetch pinned revision failed'}
+          git -C upstream checkout --detach a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'checkout failed'}
+      - name: Apply prior stable patches then v0.5.2 overlay fix
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./tools/apply-client-fixes.ps1 -Root upstream
+          & ./tools/apply-dialog-close-fix.ps1 -Root upstream
+          & ./tools/apply-pc1-compat.ps1 -Root upstream
+          & ./tools/apply-camera-scanlist-fix.ps1 -Root upstream
+          & ./tools/apply-world-sync-fix.ps1 -Root upstream
+          & ./tools/apply-pgrp-spawn-tab.ps1 -Root upstream
+          & ./tools/apply-pgrp-ui-v051.ps1 -Root upstream
+          & ./tools/apply-pgrp-chat-v052.ps1 -Root upstream
+          $chat = Get-Content 'upstream/native/gui/chat.cpp' -Raw
+          $network = Get-Content 'upstream/native/net/netgame.cpp' -Raw
+          if(-not $chat.Contains('ImGuiCol_ChildBg, IM_COL32(0, 0, 0, IsModal() ? 145 : 0)')) {
+            throw 'Chat child background fix not present'
+          }
+          if(-not $network.Contains('::Log("%s", buf);')) {throw 'Net diagnostics still in chat'}
+          if(-not $network.Contains('PGRP_AUTOCONNECT_NICK')) {throw 'Auto connect hook missing'}
+      - name: Build pinned source Win32 Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if(-not $msbuild) {throw 'VS2022 MSBuild not found'}
+          & $msbuild 'upstream/opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
+          if($LASTEXITCODE -ne 0) {throw "PGRP v0.5.2 native build failed: $LASTEXITCODE"}
+          foreach($file in @('Client.Native.dll','opensamp.exe')) {
+            if(-not(Test-Path "upstream/bin/$file")) {throw "Missing $file"}
+          }
+      - name: Package standalone candidate client files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory 'PGRP_v052_Client_Test' -Force | Out-Null
+          Copy-Item 'upstream/bin/Client.Native.dll','upstream/bin/opensamp.exe' 'PGRP_v052_Client_Test/'
+          Copy-Item 'upstream/LICENSE' 'PGRP_v052_Client_Test/LICENSE.txt'
+          Copy-Item 'upstream/THIRD-PARTY-NOTICES.md' 'PGRP_v052_Client_Test/'
+          Copy-Item 'docs/PGRP-v052-spawn-contract.md' 'PGRP_v052_Client_Test/'
+          @(
+            'PGRP v0.5.2 TEST BUILD - NO GTA ASSETS INCLUDED'
+            'Copy the DLL and EXE ONLY into a SEPARATE backup or test copy of GTA SA.'
+            'Never overwrite your known-working v0.5.1 client.'
+            'F7 chat history; normal gameplay has no dark chat background.'
+            'NetGame diagnostics are logged to OpenSamp.log, not in-game.'
+            'Spawn persistence requires a SERVER Pawn gamemode patch; it is NOT changed here.'
+          ) | Set-Content 'PGRP_v052_Client_Test/README.txt' -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.2-Win32-client-CANDIDATE
+          path: PGRP_v052_Client_Test/
+          if-no-files-found: error
+          retention-days: 14
+
+  graphical-launcher:
+    name: Build Windows x64 lightweight graphical launcher
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish single-file self-contained WinForms launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet publish 'launcher-v052/PGRPLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o 'PGRP_v052_Launcher'
+          if($LASTEXITCODE -ne 0) {throw 'Launcher compile failed'}
+          if(-not(Test-Path 'PGRP_v052_Launcher/PGRPLauncher.exe')) {throw 'Launcher executable missing'}
+          Copy-Item 'launcher-v052/README.md' 'PGRP_v052_Launcher/README.txt'
+          Get-FileHash 'PGRP_v052_Launcher/PGRPLauncher.exe' -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.2-Windows-Launcher-CANDIDATE
+          path: PGRP_v052_Launcher/
+          if-no-files-found: error
+          retention-days: 14
