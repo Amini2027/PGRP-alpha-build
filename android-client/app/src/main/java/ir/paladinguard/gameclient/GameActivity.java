@@ -82,7 +82,7 @@ public final class GameActivity extends Activity {
         TextView logo=label("PALADIN GUARD  /  ROLEPLAY",17,GOLD,true);
         logo.setLetterSpacing(.09f);
         title.addView(logo);
-        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.2",10,CYAN,true);
+        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.3",10,CYAN,true);
         title.addView(sub);
         hud.addView(title,new LinearLayout.LayoutParams(0,-2,1));
 
@@ -158,17 +158,24 @@ public final class GameActivity extends Activity {
                 .setPositiveButton("بستن",null).show();
             return;
         }
-        if(assetStatus!=null)assetStatus.setText("در حال پردازش فایل‌های اصلی IDE / IPL...");
+        if(assetStatus!=null)assetStatus.setText("در حال خواندن IPL متنی و باینری GTA...");
         io.submit(()->{
             GtaMapPlacementIndex.Result result=null;
+            GtaBinaryIplIndex.Result binaryResult=null;
+            String binaryError=null;
             String failure=null;
             try{
                 GtaMapSafSource files=new GtaMapSafSource(this,Uri.parse(uri));
                 try(java.io.Reader manifest=files.openManifest()){
                     result=GtaMapPlacementIndex.read(manifest,files);
                 }
+                try{
+                    binaryResult=files.scanBinaryIpl();
+                }catch(Exception e){binaryError=e.getMessage();}
             }catch(Exception e){failure=e.getMessage();}
             final GtaMapPlacementIndex.Result map=result;
+            final GtaBinaryIplIndex.Result binary=binaryResult;
+            final String binError=binaryError;
             final String err=failure;
             handler.post(()->{
                 if(isFinishing()||isDestroyed())return;
@@ -182,7 +189,7 @@ public final class GameActivity extends Activity {
                 if(assetStatus!=null)
                     assetStatus.setText("IPL متنی: "+map.iplLoaded+"/"+map.iplPaths+
                         " | اشیای بیرونی نزدیک لس‌سانتوس: "+map.nearbyOutside);
-                GtaIplMapPreview points=new GtaIplMapPreview(this,map);
+                GtaIplMapPreview points=new GtaIplMapPreview(this,map,binary);
                 points.setMinimumHeight(dp(350));
                 android.widget.FrameLayout frame=new android.widget.FrameLayout(this);
                 frame.addView(points,new android.widget.FrameLayout.LayoutParams(-1,dp(350)));
@@ -193,8 +200,19 @@ public final class GameActivity extends Activity {
                     .append(" | اشیای متنی: ").append(map.instances)
                     .append("\nنمونه‌های نقشه: ").append(map.visibleSamples.size())
                     .append(" | فایل‌های ناموجود: ").append(map.missingFiles)
-                    .append(" | رکوردهای نامعتبر: ").append(map.invalidRecords)
-                    .append("\n\nنقاط و مختصات اصلی GTA هستند، نه مدل سه‌بعدی. IPL باینری و DFF/TXD هنوز پشتیبانی نمی‌شود.");
+                    .append(" | رکوردهای متنی ردشده: ").append(map.invalidRecords);
+                if(binary!=null) {
+                    info.append("\nIPL باینری خوانده‌شده: ").append(binary.parsedFiles)
+                        .append("/").append(binary.binaryFiles)
+                        .append("\nاشیای باینری: ").append(binary.instances)
+                        .append(" | محدوده لس‌سانتوس: ").append(binary.nearbyOutside)
+                        .append(" | رکوردهای باینری ردشده: ").append(binary.rejected);
+                    if(!binary.errors.isEmpty())
+                        info.append("\nنمونه خطای IPL باینری: ").append(binary.errors.get(0));
+                } else {
+                    info.append("\nاسکن IPL باینری انجام نشد: ").append(binError==null?"نامشخص":binError);
+                }
+                info.append("\n\nطلایی = IPL متنی، سبز = IPL باینری. این‌ها مختصات واقعی GTA هستند، نه مدل‌های سه‌بعدی. نمایش DFF/TXD و ورود به سرور هنوز پیاده نشده‌اند.");
                 if(!map.sampleErrors.isEmpty()){
                     info.append("\n\nنمونه خطا: ").append(map.sampleErrors.get(0));
                 }
