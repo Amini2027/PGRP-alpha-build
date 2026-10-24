@@ -11,13 +11,16 @@ import java.util.Locale;
 /** Diagnostic 2D positions from original text IPL, never a claimed 3D GTA scene. */
 public final class GtaIplMapPreview extends View {
     private final GtaMapPlacementIndex.Result data;
+    private final GtaBinaryIplIndex.Result binary;
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ScaleGestureDetector scale;
     private float zoom,centerX=GtaMapPlacementIndex.CENTER_X,centerY=GtaMapPlacementIndex.CENTER_Y;
     private float lastX,lastY;
-    public GtaIplMapPreview(Context context,GtaMapPlacementIndex.Result map) {
+    public GtaIplMapPreview(Context context,GtaMapPlacementIndex.Result map,
+                            GtaBinaryIplIndex.Result binaryData) {
         super(context);
         data=map;
+        binary=binaryData;
         zoom=context.getResources().getDisplayMetrics().density*.15f;
         scale=new ScaleGestureDetector(context,new ScaleGestureDetector.SimpleOnScaleGestureListener(){
             @Override public boolean onScale(ScaleGestureDetector detector){
@@ -52,10 +55,24 @@ public final class GtaIplMapPreview extends View {
             canvas.drawCircle(x,y,Math.max(1.4f,Math.min(3.6f,zoom*7f)),paint);
             visible++;
         }
+        // Genuine binary IPL placement coordinates from models/gta3.img
+        // (green), contrasted with textual IPL positions (gold).
+        int binaryVisible=0;
+        if(binary!=null){
+            paint.setColor(0xFF65D9A5);
+            for(GtaMapPlacementIndex.Instance obj:binary.visibleSamples){
+                float bx=ox+(obj.x-centerX)*zoom;
+                float by=oy-(obj.y-centerY)*zoom;
+                if(bx<-6||bx>w+6||by<-6||by>h+6)continue;
+                canvas.drawCircle(bx,by,Math.max(1.1f,Math.min(3.0f,zoom*5f)),paint);
+                binaryVisible++;
+            }
+        }
         paint.setColor(0xFFF3F7FA);
         paint.setTextSize(getResources().getDisplayMetrics().scaledDensity*12f);
         canvas.drawText("GTA SA: text-IPL locations (NOT actual models)",12,25,paint);
-        canvas.drawText("Markers: "+visible+" / instances: "+data.instances,12,46,paint);
+        canvas.drawText("Text: "+visible+" / "+data.instances+"  Binary: "+binaryVisible+
+            " / "+(binary!=null?binary.instances:0),12,46,paint);
         canvas.drawText("Los Santos  |  drag or pinch to inspect",12,h-18,paint);
         paint.setColor(0xFFFFA65A);
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2);
