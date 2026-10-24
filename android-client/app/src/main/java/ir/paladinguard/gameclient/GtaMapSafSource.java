@@ -51,6 +51,44 @@ public final class GtaMapSafSource implements GtaMapPlacementIndex.Source {
         if(cache.size()<800)cache.put(parent,entries);
         return entries;
     }
+    /**
+     * User-owned models/gta3.img is examined in place using Android SAF.
+     * No whole-archive copying: each binary IPL record is sought via
+     * FileChannel on a provider-granted read-only file descriptor.
+     */
+    public GtaBinaryIplIndex.Result scanBinaryIpl() throws IOException {
+        Entry models=children(rootId).get("models");
+        if(models==null||!DIRECTORY.equals(models.mime))
+            throw new IOException("models folder missing");
+        Entry archive=children(models.id).get("gta3.img");
+        if(archive==null||DIRECTORY.equals(archive.mime))
+            throw new IOException("gta3.img file missing");
+        Uri uri=DocumentsContract.buildDocumentUriUsingTree(tree,archive.id);
+        try(android.os.ParcelFileDescriptor fd=resolver.openFileDescriptor(uri,"r")){
+            if(fd==null)throw new IOException("GTA archive is not readable");
+            try(java.io.FileInputStream input=new java.io.FileInputStream(fd.getFileDescriptor())){
+                java.nio.channels.FileChannel channel=input.getChannel();
+                return GtaBinaryIplIndex.scan(new GtaBinaryIplIndex.RandomReader(){
+                    @Override public long length() throws IOException{return channel.size();}
+                    @Override public void read(long at,byte[] buf,int off,int count) throws IOException{
+                        if(at<0||off<0||count<0||off>buf.length-count)
+                            throw new IOException("Invalid IMG offset or read size");
+                        java.nio.ByteBuffer destination=java.nio.ByteBuffer.wrap(buf,off,count);
+                        while(destination.hasRemaining()){
+                            int read=channel.read(destination,at);
+                            if(read<=0)throw new IOException("Truncated IMG at "+at);
+                            at+=read;
+                        }
+                    }
+                });
+            }
+        }catch(SecurityException e){
+            throw new IOException("Android denied access to GTA archive",e);
+        }catch(UnsupportedOperationException e){
+            throw new IOException("Storage provider does not support indexed file reads",e);
+        }
+    }
+
     public Reader openManifest() throws IOException {return openGameFile("data/gta.dat");}
     @Override public Reader open(String name) throws IOException {
         return openGameFile(GtaMapPlacementIndex.normalizeGamePath(name));
