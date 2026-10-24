@@ -50,7 +50,7 @@ jobs:
           for f in GtaBinaryWorldIndex.java GtaWorldScenePlanner.java GtaWorldModelLoader.java GtaDffMaterials.java RenderWareTxd.java GtaDffGeometry.java GtaMapPlacementIndexV47.java PgrpTexturedModelView.java GtaBinaryIpl.java GtaImgV2.java PgrpRealModelViewerActivity.java; do
             sed -i 's/GtaMapPlacementIndex/GtaMapPlacementIndexV47/g' "$dst/$f"
           done
-          sed -i 's/GtaMapPlacementIndexV47V47/GtaMapPlacementIndexV47/g;s/MainActivity/PgrpRealModelViewerActivity/g;s/v0.4.7/v0.4.9/g' "$dst/PgrpRealModelViewerActivity.java"
+          sed -i 's/GtaMapPlacementIndexV47V47/GtaMapPlacementIndexV47/g;s/MainActivity/PgrpRealModelViewerActivity/g' "$dst/PgrpRealModelViewerActivity.java"
           python3 tools/pgrp_patch_auto_txd_v049.py "$dst/PgrpRealModelViewerActivity.java"
           grep -q 'class GtaIdeTxdResolver' "$dst/GtaIdeTxdResolver.java"
           grep -q 'GtaIdeTxdResolver.resolve' "$dst/PgrpRealModelViewerActivity.java"
