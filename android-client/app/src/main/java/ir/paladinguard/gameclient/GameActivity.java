@@ -82,7 +82,7 @@ public final class GameActivity extends Activity {
         TextView logo=label("PALADIN GUARD  /  ROLEPLAY",17,GOLD,true);
         logo.setLetterSpacing(.09f);
         title.addView(logo);
-        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.4",10,CYAN,true);
+        TextView sub=label("ANDROID NATIVE GAME CLIENT  •  ALPHA 0.4.8",10,CYAN,true);
         title.addView(sub);
         hud.addView(title,new LinearLayout.LayoutParams(0,-2,1));
 
@@ -105,6 +105,12 @@ public final class GameActivity extends Activity {
         LinearLayout.LayoutParams assetLp=new LinearLayout.LayoutParams(-2,dp(42));
         assetLp.leftMargin=dp(8);
         hud.addView(assets,assetLp);
+
+        Button textured=smallButton("نمایش مدل با تکسچر",0xFF36536B,GOLD);
+        textured.setOnClickListener(v->startActivity(new Intent(this,PgrpRealModelViewerActivity.class)));
+        LinearLayout.LayoutParams textureLp=new LinearLayout.LayoutParams(-2,dp(42));
+        textureLp.leftMargin=dp(8);
+        hud.addView(textured,textureLp);
 
         playerCoords=label("X 0     Z 12     HDG 0°",12,WHITE,true);
         playerCoords.setPadding(dp(10),dp(7),dp(10),dp(7));
