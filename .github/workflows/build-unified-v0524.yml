@@ -1,0 +1,397 @@
+name: Build PGRP v0.5.24 All-in-One Windows Setup
+on:
+  push:
+    branches: [feature/pgrp-v0524-renderware-camera-sync]
+  pull_request:
+    paths:
+      - '.github/workflows/build-unified-v0524.yml'
+      - 'setup-v0524/**'
+      - 'launcher-native-v0518/**'
+      - 'tools/apply-pgrp-chat-v052.ps1'
+      - 'tools/apply-pgrp-ingame-v054.ps1'
+      - 'tools/apply-pgrp-freecam-compat-v055.ps1'
+      - 'tools/apply-pgrp-real-freecam-v056.ps1'
+      - 'tools/apply-pgrp-camera-world-v058.ps1'
+      - 'tools/apply-pgrp-command-history-v058.ps1'
+      - 'tools/apply-pgrp-chat-viewport-v059.ps1'
+      - 'tools/apply-pgrp-tab-live-v059.ps1'
+      - 'tools/apply-pgrp-camera-ground-v0510.ps1'
+      - 'tools/apply-pgrp-validated-spawn-camera-v0511.ps1'
+      - 'tools/apply-pgrp-true-freecam-v0512.ps1'
+      - 'tools/apply-pgrp-freecam-window-input-v0513.ps1'
+      - 'tools/apply-pgrp-freecam-rawinput-v0514.ps1'
+      - 'tools/apply-pgrp-freecam-restore-mouse-v0515.ps1'
+      - 'tools/apply-pgrp-freecam-horizon-smoothing-v0516.ps1'
+      - 'tools/apply-pgrp-freecam-mouse-v0517.ps1'
+      - 'tools/apply-pgrp-freecam-input-modes-v0518.ps1'
+      - 'tools/apply-pgrp-freecam-controls-v0519.ps1'
+      - 'tools/apply-pgrp-freecam-single-owner-v0520.ps1'
+      - 'tools/apply-pgrp-freecam-view-relative-v0521.ps1'
+      - 'tools/apply-pgrp-freecam-matrixfix-v0522.ps1'
+      - 'tools/apply-pgrp-freecam-upright-guard-v0523.ps1'
+      - 'tools/apply-pgrp-freecam-renderware-sync-v0524.ps1'
+      - 'tools/include/pgrp_freecam_math.h'
+      - 'tools/tests/test_freecam_math.cpp'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrated-installer:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: false
+
+      - name: Build lightweight Win32 native C++ Direct2D launcher (Static CRT)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          cmake -S launcher-native-v0518 -B build/native -G "Visual Studio 17 2022" -A x64
+          if($LASTEXITCODE -ne 0){throw 'CMake native launcher configure failed'}
+          cmake --build build/native --config Release --parallel
+          if($LASTEXITCODE -ne 0){throw 'Native launcher compile failed'}
+          New-Item -ItemType Directory 'build/launcher' -Force | Out-Null
+          Copy-Item 'build/native/Release/PGRPLauncher.exe' 'build/launcher/PGRPLauncher.exe'
+          $bytes=(Get-Item 'build/launcher/PGRPLauncher.exe').Length
+          Write-Host ("Native Win32 launcher size bytes="+$bytes)
+          if($bytes -gt 2000000){throw 'Launcher unexpectedly bigger than 2MB; check native build'}
+
+      - name: Verify new launcher stays running and capture UI snapshot
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Resolve-Path 'build/launcher/PGRPLauncher.exe').Path
+          $proc=Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if($proc.HasExited) {throw ('Launcher exited at startup, code '+$proc.ExitCode)}
+          try {
+            Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+            $size=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp=New-Object System.Drawing.Bitmap($size.Width,$size.Height)
+            $graphics=[System.Drawing.Graphics]::FromImage($bmp)
+            $graphics.CopyFromScreen($size.Location,[System.Drawing.Point]::Empty,$size.Size)
+            New-Item -ItemType Directory 'build/screenshots' -Force | Out-Null
+            $bmp.Save('build/screenshots/Launcher_v0524_screen.png',[System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bmp.Dispose()
+            Write-Host 'Screenshot captured'
+          } catch {
+            Write-Host ('Screenshot unavailable on CI session: '+$_.Exception.Message)
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.24-Launcher-UI-snapshot
+          path: build/screenshots/
+          if-no-files-found: ignore
+
+      - name: Clone original tested PGRP OpenSAMP revision
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          git clone --depth 1 https://github.com/bssth/opensamp.git upstream
+          if($LASTEXITCODE -ne 0){throw 'Clone failed'}
+          git -C upstream fetch --depth 1 origin a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'Pinned checkout fetch failed'}
+          git -C upstream checkout --detach a05717eeab2de65d1def7e7725dc1985198400f7
+          if($LASTEXITCODE -ne 0){throw 'Pinned checkout failed'}
+
+      - name: Patch and compile corrected in-game client
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./tools/apply-client-fixes.ps1 -Root upstream
+          & ./tools/apply-dialog-close-fix.ps1 -Root upstream
+          & ./tools/apply-pc1-compat.ps1 -Root upstream
+          & ./tools/apply-camera-scanlist-fix.ps1 -Root upstream
+          & ./tools/apply-world-sync-fix.ps1 -Root upstream
+          & ./tools/apply-pgrp-spawn-tab.ps1 -Root upstream
+          & ./tools/apply-pgrp-ui-v051.ps1 -Root upstream
+          & ./tools/apply-pgrp-chat-v052.ps1 -Root upstream
+          & ./tools/apply-pgrp-ingame-v054.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-compat-v055.ps1 -Root upstream
+          & ./tools/apply-pgrp-real-freecam-v056.ps1 -Root upstream
+          & ./tools/apply-pgrp-camera-world-v058.ps1 -Root upstream
+          & ./tools/apply-pgrp-command-history-v058.ps1 -Root upstream
+          & ./tools/apply-pgrp-chat-viewport-v059.ps1 -Root upstream
+          & ./tools/apply-pgrp-tab-live-v059.ps1 -Root upstream
+          & ./tools/apply-pgrp-camera-ground-v0510.ps1 -Root upstream
+          & ./tools/apply-pgrp-validated-spawn-camera-v0511.ps1 -Root upstream
+          & ./tools/apply-pgrp-true-freecam-v0512.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-window-input-v0513.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-rawinput-v0514.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-restore-mouse-v0515.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-horizon-smoothing-v0516.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-mouse-v0517.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-input-modes-v0518.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-controls-v0519.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-single-owner-v0520.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-view-relative-v0521.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-matrixfix-v0522.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-upright-guard-v0523.ps1 -Root upstream
+          & ./tools/apply-pgrp-freecam-renderware-sync-v0524.ps1 -Root upstream
+          $b=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
+          if(-not $b.Contains('[PGRP FC v0523] Camera mode: UPRIGHT_LOCKED')){throw 'Upright-only mode marker missing'}
+          if($b.Contains('s.fullVertical=ctrlPressed ? !s.fullVertical : false;')){throw 'Vertical inversion is still accessible'}
+          if(-not $b.Contains('s.renderYaw=s.yaw;')){throw 'Second camera rotation filter remains'}
+          if($b.Contains('renderTick % 120)')){throw 'Excessive camera hook logging persists'}
+          if(-not $b.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'W/S signed flight input missing'}
+          if(-not $b.Contains('const auto dir=pgrpfc_math::FlightDirection(')){throw 'W/S not mapped to 3D camera basis'}
+          if($b.Contains('pendingMouseX')){throw 'Deferred mouse backlog remains'}
+          if(-not $b.Contains('UPRIGHT_LOCKED')){throw 'Upright-only mode indicator missing'}
+          # v0524 must repair GTA's actual memory layout, not just math.
+          if(-not $b.Contains('put3(m+0x10,forward);')){throw 'CMatrix forward offset still wrong'}
+          if(-not $b.Contains('put3(m+0x20,up);')){throw 'CMatrix up offset still wrong'}
+          if($b.Contains('put3(m+0x10,up);')){throw 'Old swapped matrix forward remains'}
+          if($b.Contains('put3(m+0x20,forward);')){throw 'Old swapped matrix up remains'}
+          if($b.Contains('s.yaw=std::remainder(s.yaw+mx*mouseScale')){throw 'Old inverted Raw Mouse X still exists'}
+          if(-not $b.Contains('s.yaw=std::remainder(s.yaw-mx*mouseScale')){throw 'Yaw must accumulate from previous yaw'}
+          if($b.Contains('std::remainder(s.y-mx*mouseScale')){throw 'CRITICAL: camera position Y accidentally used as yaw'}
+          $yawLines=$b -split "`n" | Where-Object {$_ -match 's\.yaw\s*=\s*std::remainder'}
+          Write-Host ('FreeCam compiled yaw logic: ' + ($yawLines -join '; '))
+          if(-not $b.Contains('BUILD=rw-copy-supervised-20261021')){throw 'v0.5.24 DLL identity missing'}
+          if(-not $b.Contains('matrixDotF=%.5f matrixDotU=%.5f')){throw 'In-game matrix diagnostic missing'}
+          if(-not $b.Contains('1.3962634f')){throw 'Safe 80-degree pitch clamp missing'}
+          if(-not $b.Contains('st.pitch=std::asin(normalizedZ);')){throw 'Normalized initial gaze missing'}
+          if($b.Contains('if(s.fullVertical){')){throw 'Full vertical input branch still exists'}
+          if($b.Contains('const float pitch=s.fullVertical')){throw 'Render can still roll through 90 degrees'}
+          if($b.Contains('std::remainder(s.pitch-my*mouseScale,6.283185307f)')){throw 'Unbounded vertical pitch wrapping remains'}
+          if(-not $b.Contains('constexpr float mouseScale=.00065f;')){throw 'Bounded low-sensitivity raw mouse scale missing'}
+          if(-not $b.Contains('s.lastRawDx=dx;s.lastRawDy=dy;')){throw 'Mouse diagnostics not captured'}
+          if(-not $b.Contains('boundedAdd(pgrpfc::rawX,dx);')){throw 'Raw HID accumulator remains unbounded'}
+          if(-not $b.Contains('mode=UPRIGHT_LOCKED')){throw 'Actual in-game camera log lacks stable mode'}
+          if(-not $b.Contains('const auto dir=pgrpfc_math::FlightDirection(')){throw 'Pitch-relative W/S movement not compiled'}
+          if(-not $b.Contains('void PgrpFreeCamBeforeRWCopy(void* camera)')){throw 'No late RW pose enforcement'}
+          if(-not $b.Contains('void PgrpFreeCamAfterRWCopy(void* camera)')){throw 'No post-copy RenderWare measurement'}
+          if(-not $b.Contains('dotAltUp=')) { throw 'RenderWare post-copy telemetry incomplete' }
+          $hook=[IO.File]::ReadAllText('upstream/native/hooks.cpp')
+          if(-not $hook.Contains('hkPgrpCameraCopy')){throw 'RW camera copy hook missing'}
+          $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
+          if(-not $gui.Contains('fly.dwFlags=RIDEV_NOLEGACY;')){throw 'Competing legacy mouse input remains'}
+          if(-not $gui.Contains('GET_RAWINPUT_CODE_WPARAM(wParam)==RIM_INPUT')){throw 'Raw input cleanup regressed'}
+          Write-Host 'PASS: GTA RW camera copy supervised, after-copy matrix telemetry, mouse ownership isolated'
+          Write-Host 'PASS: no upside-down camera mode, safe mouse impulse cap and 3D flight'
+
+          $fcMath=[IO.File]::ReadAllText('upstream/native/pgrp_freecam_math.h')
+          if(-not $fcMath.Contains('{sy,-cy,0.f}')){throw 'Camera right vector still reversed'}
+          Write-Host 'PASS v0.5.24: GTA CMatrix offsets, upright horizon and diagnostic DLL identity'
+
+          if(-not $b.Contains('pgrpfc_math::FlightDirection(')){throw 'Camera-relative movement not compiled'}
+          if(-not $b.Contains('UPRIGHT_LOCKED')){throw 'F11 upright rescue mode missing'}
+          $ui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
+          if(-not $ui.Contains('GET_RAWINPUT_CODE_WPARAM(wParam)==RIM_INPUT')){throw 'WM_INPUT foreground cleanup missing'}
+          Write-Host 'PASS: permanent horizon lock / bounded raw mouse / diagnostic log'
+          $src=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
+          if($src.Contains('st.pitch=(std::max)(-1.20f')){throw 'Pitch still restricted to 69 degrees'}
+          if($src.Contains('if(s.fullVertical){')){throw 'Full vertical spin code remains in render input'}
+          if(-not $src.Contains('QueryPerformanceCounter(&counter)')){throw 'High precision camera frame clock missing'}
+          if(-not $src.Contains('pgrpfc_math::BuildBasis(')){throw 'Shared view basis not used in rendering'}
+          if(-not $src.Contains('pgrpfc::rawX.exchange(0,std::memory_order_relaxed)')){throw 'Mouse not read at render frame rate'}
+          if(-not $src.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'W/S flight axis regressed'}
+          Write-Host 'PASS: full 360 yaw, upright +/-80 pitch, sub-ms render clock and native input'
+
+          $bridge=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
+          $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
+          if($bridge.Contains('if(ahead){vx-=fx;vy-=fy;}')){throw 'Old inverted ground-plane W logic still exists'}
+          if(-not $bridge.Contains('pgrpfc_math::FlightDirection(')){throw '3D flight movement not built'}
+          if(-not $bridge.Contains('const float fly=(ahead?1.f:0.f)-(back?1.f:0.f);')){throw 'Reverse flight missing'}
+          $initStart=$gui.IndexOf('void im_gui_init(')
+          $initEnd=$gui.IndexOf('static void im_gui_shutdown()', $initStart)
+          if($initStart -lt 0 -or $initEnd -lt 0){throw 'GUI lifecycle not found'}
+          if($gui.Substring($initStart,$initEnd-$initStart).Contains('RegisterRawInputDevices')){throw 'GTA normal mouse still hijacked at startup'}
+          if(-not $gui.Contains('PgrpRestoreNormalMouse();')){throw 'Normal game mouse restoration missing'}
+          if(-not $gui.Contains('PgrpUpdateFlightMouse();')){throw 'FreeCam-only mouse mode missing'}
+          Write-Host 'PASS: W/S true pitched flight + single raw mouse consumer, no global hijack'
+          $patched=[IO.File]::ReadAllText('upstream/native/sampraknet_bridge.cpp')
+          $gui=[IO.File]::ReadAllText('upstream/native/gui/imgui_manager.cpp')
+          if($patched.Contains('SetCursorPos(origin.x,origin.y)')){throw 'Legacy jittery mouse-recenter loop remains'}
+          if(-not $patched.Contains('pgrpfc_math::FlightDirection(')){throw 'Shared pitched flight logic missing'}
+          if(-not $patched.Contains('pgrpfc_math::FlightDirection(')){throw 'Pitch-relative W/S camera flight missing'}
+          if(-not $gui.Contains('WM_INPUT') -or -not $gui.Contains('RegisterRawInputDevices')){throw 'Relative mouse path missing'}
+          Write-Host 'PASS: Mouse is relative, W/S follows pitch, no cursor warps'
+          if(-not $?) {throw 'Client patch failed'}
+          $vswhere=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $msbuild=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          if(-not $msbuild) {throw 'VS2022 MSBuild missing'}
+          & $msbuild 'upstream/opensamp.sln' '/p:Configuration=Release' '/p:Platform=Win32' '/m' '/v:minimal'
+          if($LASTEXITCODE -ne 0) {throw 'Native Win32 client compile failed'}
+          if(-not(Test-Path 'upstream/bin/Client.Native.dll')) {throw 'Missing DLL'}
+          if(-not(Test-Path 'upstream/bin/opensamp.exe')) {throw 'Missing opensamp'}
+
+      - name: Embed signed Microsoft VC++ x86 redistributable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory 'setup-v0524/payload' -Force | Out-Null
+          Copy-Item 'upstream/bin/opensamp.exe' 'setup-v0524/payload/opensamp.exe'
+          Copy-Item 'upstream/bin/Client.Native.dll' 'setup-v0524/payload/Client.Native.dll'
+          Copy-Item 'build/launcher/PGRPLauncher.exe' 'setup-v0524/payload/PGRPLauncher.exe'
+          $url='https://aka.ms/vs/17/release/vc_redist.x86.exe'
+          $out='setup-v0524/payload/vc_redist.x86.exe'
+          Invoke-WebRequest -Uri $url -OutFile $out -MaximumRedirection 10
+          if((Get-Item $out).Length -lt 1000000){throw 'Downloaded VC++ runtime is too small'}
+          $signature=Get-AuthenticodeSignature -LiteralPath $out
+          if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft'){
+            throw 'VC++ runtime is not signed by Microsoft'
+          }
+          $sha=(Get-FileHash $out -Algorithm SHA256).Hash
+          $installerScript='setup-v0524/install.ps1'
+          $script=[IO.File]::ReadAllText((Resolve-Path $installerScript).Path)
+          $token='__PGRP_MICROSOFT_VC_REDIST_SHA256__'
+          if(-not $script.Contains($token)){throw 'Missing runtime digest placeholder'}
+          [IO.File]::WriteAllText((Resolve-Path $installerScript).Path,
+            $script.Replace($token,$sha),[Text.UTF8Encoding]::new($false))
+          Write-Host ("Bundled signed Microsoft VC++ x86 SHA256="+$sha)
+
+      - name: Compile ONE standalone Windows installer EXE (no .NET runtime needed)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Push-Location setup-v0524
+          try {
+            $env:GOOS='windows'; $env:GOARCH='amd64'; $env:CGO_ENABLED='0'
+            go build -trimpath -ldflags '-H windowsgui -s -w' -o ../PGRP_v0.5.24_All_in_One_Windows_Setup.exe .
+            if($LASTEXITCODE -ne 0){throw 'Go single Setup compile failed'}
+          } finally { Pop-Location }
+          if(-not(Test-Path 'PGRP_v0.5.24_All_in_One_Windows_Setup.exe')){throw 'Missing installer EXE'}
+          & ./PGRP_v0.5.24_All_in_One_Windows_Setup.exe --verify
+          if($LASTEXITCODE -ne 0){throw 'Bundled EXE hash verification failed'}
+
+      - name: Verify real graphical setup window startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $marker=Join-Path $env:TEMP 'PGRP_v0524_UI_Smoke.ok'
+          Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+          $path=(Resolve-Path './PGRP_v0.5.24_All_in_One_Windows_Setup.exe').Path
+          $p=Start-Process -FilePath $path -ArgumentList @('-UiSmoke') -PassThru
+          if(-not($p.WaitForExit(70000))){
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            throw 'Setup UI smoke timeout'
+          }
+          if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
+            Get-Content (Join-Path $env:TEMP 'PGRP_v0524_Setup_Boot.log') -Tail 40 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v0524_Setup.log') -Tail 40 -ErrorAction SilentlyContinue
+            throw 'WinForms setup UI smoke failed'
+          }
+
+      - name: Exercise Browse and Install GUI handlers on synthetic owned GTA
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $temp=Join-Path $env:RUNNER_TEMP 'pgrp_v0524_installer_smoke'
+          $src=Join-Path $temp 'OriginalGTA'
+          $dest=Join-Path $temp 'PGRP_Alpha_v0.5.24'
+          New-Item -ItemType Directory -Force -Path (Join-Path $src 'models'),(Join-Path $src 'data') | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $src 'gta_sa.exe'),[byte[]](1,2,3,4,5))
+          [IO.File]::WriteAllText((Join-Path $src 'models/gta3.img'),'synthetic CI only; no Rockstar game included')
+          [IO.File]::WriteAllText((Join-Path $src 'data/gta.dat'),'synthetic test data, no copyrighted assets')
+          $hashBefore=(Get-FileHash (Join-Path $src 'gta_sa.exe') -Algorithm SHA256).Hash
+          $marker=Join-Path $env:TEMP 'PGRP_v0524_UI_Action_Smoke.ok'
+          $smokeError=Join-Path $env:TEMP 'PGRP_v0524_UI_Action_Smoke.error'
+          Remove-Item -LiteralPath $marker,$smokeError -Force -ErrorAction SilentlyContinue
+          $exe=(Resolve-Path './PGRP_v0.5.24_All_in_One_Windows_Setup.exe').Path
+          $p=Start-Process -FilePath $exe -ArgumentList @('-UiActionSmoke','-SourceGTA',('"' + (Join-Path $src 'gta_sa.exe') + '"'),'-InstallRoot',('"'+$dest+'"')) -PassThru
+          if(-not $p.WaitForExit(65000)){
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v0524_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v0524_Setup_Boot.log') -Tail 30 -ErrorAction SilentlyContinue
+            throw 'Real installer click test timed out (65 sec)'
+          }
+          if($p.ExitCode -ne 0 -or -not(Test-Path -LiteralPath $marker)){
+            Get-Content -LiteralPath $smokeError -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:TEMP 'PGRP_v0524_Setup.log') -Tail 50 -ErrorAction SilentlyContinue
+            throw 'Install GUI actual action smoke failed'
+          }
+          foreach($item in @(
+            @{src='setup-v0524/payload/opensamp.exe';dst=(Join-Path $dest 'opensamp.exe')},
+            @{src='setup-v0524/payload/Client.Native.dll';dst=(Join-Path $dest 'Client.Native.dll')},
+            @{src='setup-v0524/payload/PGRPLauncher.exe';dst=(Join-Path $dest 'PGRPLauncher.exe')}
+          )) {
+            $actual=(Get-FileHash -LiteralPath $item.dst -Algorithm SHA256).Hash
+            $expected=(Get-FileHash -LiteralPath $item.src -Algorithm SHA256).Hash
+            if($actual -ne $expected){throw ('Installed hash mismatch: '+$item.dst)}
+          }
+          foreach($must in @('gta_sa.exe','models/gta3.img','data/gta.dat','PGRPLauncher.exe','opensamp.exe','Client.Native.dll')) {
+            if(-not(Test-Path -LiteralPath (Join-Path $dest $must))) {
+              throw ('Installed game file missing beside launcher: '+$must)
+            }
+          }
+          if((Get-FileHash -LiteralPath (Join-Path $src 'gta_sa.exe') -Algorithm SHA256).Hash -ne $hashBefore){
+            throw 'Original GTA was modified'
+          }
+          if((Get-FileHash -LiteralPath (Join-Path $dest 'gta_sa.exe') -Algorithm SHA256).Hash -ne $hashBefore){
+            throw 'Installed GTA copy does not match source'
+          }
+          Write-Host 'PASS: flat GTA installation with launcher; game copied exactly'
+          Write-Host 'PASS: Single installer UI / Browse / Install / exact hashes / original game unchanged'
+
+      - name: Publish all-in-one setup artifact and source notices
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory 'PGRP_v0524_One_Setup_Release' -Force | Out-Null
+          Copy-Item 'PGRP_v0.5.24_All_in_One_Windows_Setup.exe' 'PGRP_v0524_One_Setup_Release/'
+          Copy-Item 'upstream/LICENSE' 'PGRP_v0524_One_Setup_Release/LICENSE.txt'
+          Copy-Item 'upstream/THIRD-PARTY-NOTICES.md' 'PGRP_v0524_One_Setup_Release/'
+          Copy-Item 'setup-v0524/install.ps1' 'PGRP_v0524_One_Setup_Release/'
+          Copy-Item 'setup-v0524/main.go' 'PGRP_v0524_One_Setup_Release/setup-main.go'
+          Copy-Item 'launcher-native-v0518/pgrp_launcher.cpp' 'PGRP_v0524_One_Setup_Release/launcher-program.cpp'
+          Copy-Item 'launcher-native-v0518/CMakeLists.txt' 'PGRP_v0524_One_Setup_Release/CMakeLists.txt'
+          Compress-Archive -Path 'upstream/*' -DestinationPath 'PGRP_v0524_One_Setup_Release/OpenSAMP_corresponding_source.zip' -CompressionLevel Optimal
+          if(-not(Test-Path 'PGRP_v0524_One_Setup_Release/OpenSAMP_corresponding_source.zip')){throw 'Patched source archive missing'}
+          @(
+            'PGRP v0.5.24 all-in-one launcher + OpenSAMP Win32 native client + Microsoft VC++ x86 prerequisite.'
+            'Windows 10/11 64-bit; standalone installer EXE.'
+            'Select an existing legally owned GTA SA gta_sa.exe; installer creates a SEPARATE game copy.'
+            'Installs to user-selected folder (default %LOCALAPPDATA%/PaladinGuard/PGRP_Alpha_v0.5.24/) with gta_sa.exe and launcher side by side.'
+            'Desktop shortcut and optional opening point to PGRPLauncher.exe, NOT opensamp.exe.'
+            'GTA is copied from the selected source next to PGRPLauncher.exe; contains NO GTA copyrighted game content. No server database mutation.'
+            'No .NET runtime needed; launcher is native Direct2D with static x64 CRT.'
+            'Never delete working v0.5.1 until testing confirms gameplay/reconnect stability.'
+            'Server-side spawn fix is in the separate complete-server ZIP.'
+          ) | Set-Content 'PGRP_v0524_One_Setup_Release/README.txt' -Encoding UTF8
+          Get-FileHash 'PGRP_v0.5.24_All_in_One_Windows_Setup.exe' -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PGRP-v0.5.24-All-in-One-Windows-Setup
+          path: PGRP_v0524_One_Setup_Release/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish direct-download verified EXE (no ZIP required)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $tag='v0.5.24-renderware-camera-sync'
+          $exe='PGRP_v0.5.24_All_in_One_Windows_Setup.exe'
+          if(-not (Test-Path -LiteralPath $exe)){throw 'Standalone EXE missing'}
+          $hash=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+          Write-Host "PGRP v0.5.24 Setup SHA256=$hash"
+          gh release view $tag 2>$null | Out-Null
+          if($LASTEXITCODE -eq 0){
+            gh release upload $tag $exe --clobber
+          } else {
+            gh release create $tag $exe --target feature/pgrp-v0524-renderware-camera-sync --title 'PGRP v0.5.24 - RenderWare Camera Synchronization' --notes "Standalone EXE, no archive required. Windows CI build and setup UI tests passed. RW copy supervision, post-copy diagnostic telemetry, single-owner raw mouse input. GTA runtime behavior still requires a real in-game test. SHA256: $hash"
+          }
+          if($LASTEXITCODE -ne 0){throw 'Public EXE release upload failed'}
+
+
+  freecam-math-regression:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and execute view-relative flight math
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -O2 tools/tests/test_freecam_math.cpp -o /tmp/test_freecam_math
+          /tmp/test_freecam_math
