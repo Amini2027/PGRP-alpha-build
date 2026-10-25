@@ -28,17 +28,17 @@ public final class GtaTextureDiagnostics {
     if(!t.canDecode())return new Result(head+"\nTexture format not supported by GL preview",null);
     if((long)t.width*t.height>1048576L)return new Result(head+"\nSource texture too large to inspect",null);
     try{
-      int[] pixels=t.toArgb(),sample=new int[4096];
+      int[] pixels=t.toArgb();
       int white=0,black=0,colored=0,transparent=0;
       for(int y=0;y<64;y++)for(int x=0;x<64;x++){
         int c=pixels[Math.min(t.height-1,y*t.height/64)*t.width+Math.min(t.width-1,x*t.width/64)];
-        sample[y*64+x]=c;int a=(c>>>24)&255,r=(c>>>16)&255,g=(c>>>8)&255,b=c&255;
+        int a=(c>>>24)&255,r=(c>>>16)&255,g=(c>>>8)&255,b=c&255;
         if(r>=235&&g>=235&&b>=235)white++;
         if(r<=24&&g<=24&&b<=24)black++;
         if(Math.max(r,Math.max(g,b))-Math.min(r,Math.min(g,b))>30)colored++;
         if(a<128)transparent++;
       }
-      Bitmap bmp=Bitmap.createBitmap(sample,64,64,Bitmap.Config.ARGB_8888);
+      Bitmap bmp=Bitmap.createBitmap(pixels,t.width,t.height,Bitmap.Config.ARGB_8888);
       return new Result(head+String.format(Locale.US,
           "\nSource image pixels: white %d%% | black %d%% | color %d%% | transparent %d%%",
           white*100/4096,black*100/4096,colored*100/4096,transparent*100/4096),bmp);
