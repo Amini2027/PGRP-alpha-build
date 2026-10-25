@@ -1,0 +1,52 @@
+name: Publish PGRP v0.5.23 Setup EXE direct download
+on:
+  push:
+    branches: [feature/pgrp-v0523-freecam-upright-diagnostics]
+    paths:
+      - '.github/workflows/publish-v0523-setup-exe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrieve successful tested Windows Setup artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 39439705704
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: PGRP-v0.5.23-All-in-One-Windows-Setup
+          path: bundle
+      - name: Verify executable matches successful Windows build
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$(find bundle -type f -name 'PGRP_v0.5.23_All_in_One_Windows_Setup.exe' -print -quit)"
+          if [[ -z "$exe" ]]; then echo "Setup EXE missing"; exit 1; fi
+          actual="$(sha256sum "$exe" | cut -d' ' -f1)"
+          expected="20c8eaccb37a82bea94375143b8e865c958f319b14c90708d84d0f9cc658807a"
+          [[ "$actual" == "$expected" ]] || { echo "EXE SHA256 mismatch: $actual"; exit 1; }
+          mkdir -p dist
+          cp "$exe" dist/PGRP_v0.5.23_All_in_One_Windows_Setup.exe
+          echo "Verified Windows EXE SHA256: $actual"
+          ls -lh dist/*.exe
+      - name: Publish EXE as public direct-download GitHub release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v0.5.23-upright-freecam"
+          asset="dist/PGRP_v0.5.23_All_in_One_Windows_Setup.exe"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$asset" --clobber
+          else
+            gh release create "$tag" "$asset" \
+              --target feature/pgrp-v0523-freecam-upright-diagnostics \
+              --title "PGRP v0.5.23 FreeCam Upright Windows Setup" \
+              --notes "Windows installer EXE only. Reproducible artifact from successful CI run 39439705704. SHA256: 20C8EACCB37A82BEA94375143B8E865C958F319B14C90708D84D0F9CC658807A. In-game FreeCam behavior requires real GTA testing."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
