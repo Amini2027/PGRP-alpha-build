@@ -2,7 +2,7 @@ name: PGRP Android v0.5.2 In-Place Upgrade
 on:
   push:
     branches:
-      - feature/pgrp-android-uv-debug-v052
+      - feature/pgrp-android-model-browser-v052
     paths:
       - android-client/**
       - .github/workflows/build-android-model-browser-v052.yml
@@ -128,5 +128,5 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" PGRP_Android_v0.5.2_SameKey_Update.apk --clobber
           else
-            gh release create "$tag" PGRP_Android_v0.5.2_SameKey_Update.apk --target feature/pgrp-android-uv-debug-v052 --title "PGRP Android 0.5.2 Model Browser and Shading Comparison" --notes "Original PGRP app preserved, genuine GTA DFF/TXD preview added. Same package and same original release signing certificate. versionCode 52. Alpha prototype, not complete playable multiplayer." --prerelease
+            gh release create "$tag" PGRP_Android_v0.5.2_SameKey_Update.apk --target feature/pgrp-android-model-browser-v052 --title "PGRP Android 0.5.2 Model Browser and Shading Comparison" --notes "Original PGRP app preserved, genuine GTA DFF/TXD preview added. Same package and same original release signing certificate. versionCode 52. Alpha prototype, not complete playable multiplayer." --prerelease
           fi
