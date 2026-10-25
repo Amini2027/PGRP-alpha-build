@@ -2,7 +2,7 @@ name: PGRP Android v0.5.0 In-Place Upgrade
 on:
   push:
     branches:
-      - feature/pgrp-android-auto-txd-v050
+      - feature/pgrp-android-shared-vehicle-txd-v050
     paths:
       - android-client/**
       - .github/workflows/build-android-shared-txd-v050.yml
@@ -119,5 +119,5 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" PGRP_Android_v0.5.0_SameKey_Update.apk --clobber
           else
-            gh release create "$tag" PGRP_Android_v0.5.0_SameKey_Update.apk --target feature/pgrp-android-auto-txd-v050 --title "PGRP Android 0.5.0 Shared Vehicle Texture Fix" --notes "Original PGRP app preserved, genuine GTA DFF/TXD preview added. Same package and same original release signing certificate. versionCode 50. Alpha prototype, not complete playable multiplayer." --prerelease
+            gh release create "$tag" PGRP_Android_v0.5.0_SameKey_Update.apk --target feature/pgrp-android-shared-vehicle-txd-v050 --title "PGRP Android 0.5.0 Shared Vehicle Texture Fix" --notes "Original PGRP app preserved, genuine GTA DFF/TXD preview added. Same package and same original release signing certificate. versionCode 50. Alpha prototype, not complete playable multiplayer." --prerelease
           fi
